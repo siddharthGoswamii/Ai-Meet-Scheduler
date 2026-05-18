@@ -6,7 +6,7 @@ from sqlalchemy.orm import declarative_base
 from typing import AsyncGenerator
 
 from app.core.config import settings
-DATABASE_URL = "postgresql://postgres:KYTE2583@@localhost:5432/gmeet_scheduler"
+DATABASE_URL = "postgresql://admin123@localhost:5432/teams_scheduler"
 
 # Create async engine
 engine = create_async_engine(
