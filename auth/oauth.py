@@ -4,7 +4,7 @@ from fastapi import APIRouter
 from google_auth_oauthlib.flow import Flow
 import os
 
-router = APIRouter()
+router = APIRouter(prefix="/oauth")
 
 # Google OAuth config
 GOOGLE_CLIENT_ID     = os.getenv("GOOGLE_CLIENT_ID")
