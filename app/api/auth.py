@@ -218,41 +218,6 @@ async def refresh_token(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to refresh token"
         )
-
-
-@router.post("/logout")
-async def logout(
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    """
-    Logout user (clear tokens)
-    
-    Args:
-        db: Database session
-        current_user: Current authenticated user
-    
-    Returns:
-        Success message
-    """
-    try:
-        # Clear user tokens
-        current_user.access_token = None
-        current_user.refresh_token = None
-        current_user.token_expires_at = None
-        
-        await db.commit()
-        
-        return {"message": "Logout successful"}
-        
-    except Exception as e:
-        logger.error(f"Error during logout: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Logout failed"
-        )
-
-
 async def get_current_user(
     token: str = Depends(oauth2_scheme),
     db: AsyncSession = Depends(get_db)
@@ -295,15 +260,47 @@ async def get_current_user(
             )
         
         return user
-        
-    except HTTPException:
-        raise
     except Exception as e:
         logger.error(f"Error getting current user: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Could not validate credentials"
         )
+
+
+@router.post("/logout")
+async def logout(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Logout user (clear tokens)
+    
+    Args:
+        db: Database session
+        current_user: Current authenticated user
+    
+    Returns:
+        Success message
+    """
+    try:
+        # Clear user tokens
+        current_user.access_token = None
+        current_user.refresh_token = None
+        current_user.token_expires_at = None
+        
+        await db.commit()
+        
+        return {"message": "Logout successful"}
+        
+    except Exception as e:
+        logger.error(f"Error during logout: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Logout failed"
+        )
+
+    
 
 
 # Made with Bob

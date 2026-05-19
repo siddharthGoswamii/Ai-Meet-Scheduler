@@ -1,17 +1,22 @@
-# Teams Meeting Scheduler - Backend API
+# AI-Powered Meeting Scheduler - Backend API
 
-FastAPI backend for Microsoft Teams Meeting Scheduler with Microsoft Graph API integration.
+FastAPI backend for AI-powered meeting scheduling with Google Calendar and Microsoft Teams integration.
 
 ## Features
 
-- ✅ Microsoft OAuth 2.0 authentication
-- ✅ Microsoft Graph API integration for Teams meetings
-- ✅ RESTful API endpoints for meeting management
-- ✅ PostgreSQL database with async SQLAlchemy
-- ✅ JWT token-based authentication
-- ✅ Encrypted token storage
-- ✅ Comprehensive error handling
-- ✅ API documentation with Swagger/OpenAPI
+- ✅ **AI-Powered Scheduling**: Automatically finds optimal meeting times by analyzing all attendees' calendars
+- ✅ **Google Calendar Integration**: Full Google Calendar API support with free/busy analysis
+- ✅ **Microsoft OAuth 2.0 authentication**: Secure authentication flow
+- ✅ **Microsoft Graph API integration**: Teams meetings support
+- ✅ **Multi-Attendee Availability**: Checks calendar availability for all attendees simultaneously
+- ✅ **Intelligent Time Slot Ranking**: AI algorithm scores slots based on time of day, day of week, and more
+- ✅ **Automatic Meeting Creation**: Creates meetings with Google Meet links automatically
+- ✅ **RESTful API endpoints**: Comprehensive meeting management
+- ✅ **PostgreSQL database**: Async SQLAlchemy with full ORM support
+- ✅ **JWT token-based authentication**: Secure token management
+- ✅ **Encrypted token storage**: Military-grade encryption for sensitive data
+- ✅ **Comprehensive error handling**: Robust error management
+- ✅ **API documentation**: Interactive Swagger/OpenAPI docs
 
 ## Tech Stack
 
@@ -209,10 +214,54 @@ The API will be available at:
 - `PATCH /api/meetings/{meeting_id}` - Update meeting
 - `DELETE /api/meetings/{meeting_id}` - Cancel meeting
 
+### 🤖 AI-Powered Scheduling (NEW!)
+
+- `POST /calendar/find-free-slots` - Find time slots when all attendees are free
+- `POST /calendar/auto-schedule` - Automatically schedule meeting at best time
+- `GET /calendar/attendee-availability` - Get detailed availability for attendees
+
+### Google Calendar
+
+- `GET /calendar/busy-slots` - Get user's busy time slots
+- `POST /calendar/create-meeting` - Create meeting with Google Meet link
+
 ### Health Check
 
 - `GET /` - Root endpoint
 - `GET /health` - Health check
+
+## 🚀 AI Scheduling Quick Start
+
+The AI-powered scheduling feature automatically finds the best meeting times by:
+1. Checking all attendees' Google Calendars
+2. Finding common free time slots
+3. Ranking slots using AI algorithms
+4. Automatically creating the meeting
+
+**Example: Auto-schedule a meeting**
+
+```bash
+curl -X POST http://localhost:8000/calendar/auto-schedule \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "Team Sync",
+    "attendee_emails": ["user1@example.com", "user2@example.com"],
+    "duration_minutes": 60,
+    "start_date": "2026-05-20T00:00:00Z",
+    "end_date": "2026-05-27T23:59:59Z",
+    "timezone": "Asia/Kolkata",
+    "is_online": true
+  }'
+```
+
+**Response includes:**
+- Selected time slot with confidence score
+- Google Meet link
+- Alternative time slots
+- Calendar invitation sent to all attendees
+
+📖 **For detailed AI scheduling documentation, see [AI_SCHEDULING_GUIDE.md](AI_SCHEDULING_GUIDE.md)**
 
 ## API Usage Examples
 

@@ -18,8 +18,32 @@ export default function Login() {
   };
 
   return (
-    <div>
-      <button onClick={handleGoogleLogin}>
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center',
+        alignItems: 'center',
+        height: '100vh',
+        backgroundColor: 'lightblue'
+      }}
+    >
+      <h1 style={{ color: 'black' }}>
+        AI Meet Scheduler
+      </h1>
+
+      <p style={{ color: 'black' }}>
+        Smart Meeting Scheduling Powered By AI
+      </p>
+
+      <button
+        onClick={handleGoogleLogin}
+        style={{
+          padding: '10px 20px',
+          fontSize: '18px',
+          cursor: 'pointer'
+        }}
+      >
         Login with Google
       </button>
     </div>
