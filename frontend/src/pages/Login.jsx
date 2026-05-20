@@ -2,14 +2,37 @@ import axios from 'axios';
 
 export default function Login() {
 
+  // const handleGoogleLogin = async () => {
+  //   try {
+
+  //     const res = await axios.get(
+  //       'http://127.0.0.1:8000/api/auth/login'
+  //     );
+
+  //     window.location.href = res.data.authorization_url;
+
+  //   } catch (error) {
+  //     console.error('Login error:', error);
+  //     alert('Failed to start Google login');
+  //   }
+  // };
   const handleGoogleLogin = async () => {
     try {
-
+      // Add withCredentials: true to allow the session cookie to be saved
+      // const res = await axios.get(
+      //   'http://127.0.0.1:8000/api/auth/login',
+      //   { withCredentials: true } 
+      // );
       const res = await axios.get(
-        'http://127.0.0.1:8000/api/auth/login'
-      );
+  'http://localhost:8000/api/auth/login', // Change 127.0.0.1 to localhost
+  { withCredentials: true }
+);
 
-      window.location.href = res.data.authorization_url;
+      if (res.data && res.data.authorization_url) {
+        window.location.href = res.data.authorization_url;
+      } else {
+        console.error('Authorization URL missing in response:', res.data);
+      }
 
     } catch (error) {
       console.error('Login error:', error);

@@ -1,45 +1,89 @@
 // src/pages/Dashboard.jsx
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import axios from 'axios';
 
 export default function Dashboard() {
-    const [date, setDate]           = useState('');
-    const [duration, setDuration]   = useState(60);
-    const [emails, setEmails]       = useState('');
+    const [date, setDate]               = useState('');
+    const [duration, setDuration]       = useState(60);
+    const [emails, setEmails]           = useState('');
     const [suggestions, setSuggestions] = useState([]);
-    const [loading, setLoading]     = useState(false);
+    const [loading, setLoading]         = useState(false);
+
+    useEffect(() => {
+        // 1. Read the parameters right out of window.location
+        const queryParams = new URLSearchParams(window.location.search);
+        const token = queryParams.get('token');
+        const refreshToken = queryParams.get('refresh_token');
+
+        if (token && refreshToken) {
+            // 2. Save them to local storage for Axios request authorization headers
+            localStorage.setItem('token', token);
+            localStorage.setItem('refresh_token', refreshToken);
+            
+            // 3. Clean up the URL bar so it looks nice and doesn't expose raw tokens
+            window.history.replaceState({}, document.title, "/dashboard");
+        }
+    }, []);
 
     const getSuggestions = async () => {
         setLoading(true);
-        const res = await axios.post(
-            'http://localhost:8000/ai/suggest-slots',
-            {
-                participants:   emails.split(','),
-                duration_mins:  duration,
-                preferred_date: date
-            }
-        );
-        setSuggestions(res.data.ai_suggestions);
-        setLoading(false);
+        try {
+            // Pull the token out of local storage
+            const token = localStorage.getItem('token');
+
+            const res = await axios.post(
+                'http://localhost:8000/ai/suggest-slots',
+                {
+                    participants:   emails.split(','),
+                    duration_mins:  duration,
+                    preferred_date: date
+                },
+                {
+                    // FIXED: Added headers configuration block so FastAPI allows the request
+                    headers: {
+                        Authorization: `Bearer ${token}`
+                    }
+                }
+            );
+            setSuggestions(res.data.ai_suggestions || []);
+        } catch (error) {
+            console.error("Error getting suggestions:", error);
+            alert("❌ Failed to get suggestions. Make sure you are logged in.");
+        } finally {
+            setLoading(false);
+        }
     };
 
     const bookMeeting = async (slot) => {
-        await axios.post(
-            'http://localhost:8000/calendar/create-meeting',
-            {
-                title:        'Team Meeting',
-                start_time:   `${date}T${slot.start}:00`,
-                end_time:     `${date}T${slot.end}:00`,
-                participants: emails.split(',')
-            }
-        );
-        alert('✅ Meeting booked! Google Meet link sent!');
+        try {
+            // Pull the token out of local storage
+            const token = localStorage.getItem('token');
+
+            await axios.post(
+                'http://localhost:8000/calendar/create-meeting',
+                {
+                    title:        'Team Meeting',
+                    start_time:   `${date}T${slot.start}:00`,
+                    end_time:     `${date}T${slot.end}:00`,
+                    participants: emails.split(',')
+                },
+                {
+                    // FIXED: Added headers configuration block here as well
+                    headers: {
+                        Authorization: `Bearer ${token}`
+                    }
+                }
+            );
+            alert('✅ Meeting booked! Google Meet link sent!');
+        } catch (error) {
+            console.error("Error booking meeting:", error);
+            alert("❌ Failed to book meeting.");
+        }
     };
 
     return (
-        <div style={{padding:32, background:'#0D0D0D',
-                     minHeight:'100vh', color:'#fff'}}>
+        <div style={{padding:32, background:'#0D0D0D', minHeight:'100vh', color:'#fff'}}>
 
             <h2>🤖 Schedule a Meeting</h2>
 
@@ -55,7 +99,7 @@ export default function Dashboard() {
             {/* Duration */}
             <select
                 value={duration}
-                onChange={e => setDuration(e.target.value)}
+                onChange={e => setDuration(Number(e.target.value))}
                 style={{padding:10, borderRadius:8,
                         background:'#1A1A1A', color:'#fff',
                         border:'1px solid #333', marginLeft:12}}>
@@ -77,9 +121,10 @@ export default function Dashboard() {
             {/* Get AI suggestions */}
             <button
                 onClick={getSuggestions}
-                style={{background:'#2196F3', color:'#fff',
+                disabled={!date || !emails}
+                style={{background: (!date || !emails) ? '#555' : '#2196F3', color:'#fff',
                         padding:'12px 24px', borderRadius:8,
-                        border:'none', cursor:'pointer',
+                        border:'none', cursor: (!date || !emails) ? 'not-allowed' : 'pointer',
                         fontWeight:600}}>
                 {loading ? '🤖 AI thinking...' : '✨ Get AI Suggestions'}
             </button>
