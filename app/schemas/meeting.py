@@ -2,7 +2,7 @@
 Meeting Pydantic schemas for request/response validation
 """
 from pydantic import BaseModel, EmailStr, Field, field_validator
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, List
 from enum import Enum
 
@@ -68,7 +68,15 @@ class MeetingCreate(BaseModel):
     @classmethod
     def start_in_future(cls, v: datetime) -> datetime:
         """Validate that start_time is in the future"""
-        if v <= datetime.utcnow():
+        # Make both datetimes timezone-aware for comparison
+        now = datetime.now(timezone.utc)
+        # If v is naive, make it UTC aware
+        if v.tzinfo is None:
+            v_aware = v.replace(tzinfo=timezone.utc)
+        else:
+            v_aware = v
+        
+        if v_aware <= now:
             raise ValueError('start_time must be in the future')
         return v
     

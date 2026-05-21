@@ -70,26 +70,36 @@ export default function Dashboard() {
     // ── Step 4: Book a meeting ──
     const bookMeeting = async (slot) => {
         try {
+            // Parse the date and times correctly
+            const startDateTime = new Date(`${date}T${slot.start}:00`);
+            const endDateTime = new Date(`${date}T${slot.end}:00`);
+            
             const res = await axios.post(
-                'http://127.0.0.1:8000/api/meetings/create',
+                'http://127.0.0.1:8000/api/meetings',
                 {
-                    title:        'Team Meeting',
-                    date:          date,
-                    start_time:    slot.start,
-                    end_time:      slot.end,
-                    participants:  emails.split(',').map(e => e.trim()),
-                    duration_mins: parseInt(duration)
+                    title: 'Team Meeting',
+                    description: 'Scheduled via AI Meeting Scheduler',
+                    start_time: startDateTime.toISOString(),
+                    end_time: endDateTime.toISOString(),
+                    timezone: 'Asia/Kolkata',
+                    attendees: emails.split(',').map(e => ({
+                        email: e.trim(),
+                        display_name: e.trim().split('@')[0],
+                        is_required: true
+                    })),
+                    is_online: true,
+                    send_invitations: true
                 },
                 getHeaders()
             );
 
-            const link = res.data.meet_link || '';
+            const link = res.data.meeting_url || '';
             setMeetLink(link);
             alert(`✅ Meeting booked successfully!\nLink: ${link}`);
 
         } catch (err) {
-            console.error(err);
-            alert('Failed to book the selected slot.');
+            console.error('Booking error:', err.response?.data || err);
+            alert('Failed to book the selected slot. Check console for details.');
         }
     };
 

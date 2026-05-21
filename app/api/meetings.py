@@ -446,13 +446,17 @@ async def create_meeting(
         meeting_url = google_service.extract_meet_link(google_event)
         
         # Create meeting in database
+        # Convert timezone-aware datetimes to naive for PostgreSQL
+        start_time_naive = meeting_data.start_time.replace(tzinfo=None) if meeting_data.start_time.tzinfo else meeting_data.start_time
+        end_time_naive = meeting_data.end_time.replace(tzinfo=None) if meeting_data.end_time.tzinfo else meeting_data.end_time
+        
         db_meeting = Meeting(
             organizer_id=current_user.user_id,
             teams_meeting_id=google_event.get("id"),
             title=meeting_data.title,
             description=meeting_data.description,
-            start_time=meeting_data.start_time,
-            end_time=meeting_data.end_time,
+            start_time=start_time_naive,
+            end_time=end_time_naive,
             timezone=meeting_data.timezone,
             location=meeting_data.location,
             is_online=meeting_data.is_online,

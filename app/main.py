@@ -56,25 +56,29 @@ app = FastAPI(
 #     same_site="lax",   # Essential to allow cookies across Microsoft's redirect back to your app
 #     https_only=False,  # Set to True in production (HTTPS), but False for local HTTP development
 # )
-app.add_middleware(
-    SessionMiddleware,
-    secret_key=settings.SECRET_KEY, 
-    session_cookie="teams_auth_session",
-    same_site="lax",       # Allows cross-site cookie transfers from Google redirects
-    https_only=False,      # CRITICAL: Must be False so HTTP (non-secure localhost) accepts it
-    domain=None            # Explicitly None forces the cookie to stick to the exact host domain
-)
-
-#2 Add CORS middleware
+# Add CORS middleware FIRST (order matters!)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:3000",
         "http://127.0.0.1:3000",
+        "http://localhost:8000",
+        "http://127.0.0.1:8000",
     ],
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["*"],
+    expose_headers=["*"],
+)
+
+# Add Session middleware AFTER CORS
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=settings.SECRET_KEY,
+    session_cookie="teams_auth_session",
+    same_site="lax",       # Allows cross-site cookie transfers from Google redirects
+    https_only=False,      # CRITICAL: Must be False so HTTP (non-secure localhost) accepts it
+    domain=None            # Explicitly None forces the cookie to stick to the exact host domain
 )
 
 # # 2. ADD THE SESSION MIDDLEWARE HERE
