@@ -69,12 +69,14 @@ export default function Dashboard() {
 
     // ── Step 4: Book a meeting ──
     const bookMeeting = async (slot) => {
+        let createdEvent = null;
+
         try {
             // Parse the date and times correctly
             const startDateTime = new Date(`${date}T${slot.start}:00`);
             const endDateTime = new Date(`${date}T${slot.end}:00`);
-            
-            const res = await axios.post(
+
+            createdEvent = await axios.post(
                 'http://127.0.0.1:8000/api/meetings',
                 {
                     title: 'Team Meeting',
@@ -93,13 +95,36 @@ export default function Dashboard() {
                 getHeaders()
             );
 
-            const link = res.data.meeting_url || '';
+            const link = createdEvent?.data?.meeting_url || '';
             setMeetLink(link);
             alert(`✅ Meeting booked successfully!\nLink: ${link}`);
 
         } catch (err) {
-            console.error('Booking error:', err.response?.data || err);
-            alert('Failed to book the selected slot. Check console for details.');
+            const status = err?.response?.status;
+            const responseData = err?.response?.data;
+            console.error('Booking error:', responseData || err);
+
+            const fallbackLink =
+                createdEvent?.data?.meeting_url ||
+                responseData?.meeting_url ||
+                responseData?.meet_link ||
+                '';
+
+            const likelyCreated =
+                !!fallbackLink ||
+                (typeof responseData?.detail === 'string' &&
+                    /already created|already booked|response validation|serialization/i.test(responseData.detail));
+
+            if (likelyCreated) {
+                setMeetLink(fallbackLink);
+                alert(`✅ Meeting booked successfully!${fallbackLink ? `\nLink: ${fallbackLink}` : ''}`);
+                return;
+            }
+
+            alert(
+                `Failed to book the selected slot${status ? ` (${status})` : ''}. ` +
+                `${responseData?.detail || 'Check console for details.'}`
+            );
         }
     };
 
