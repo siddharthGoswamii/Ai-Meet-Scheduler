@@ -461,7 +461,7 @@ async def create_meeting(
             location=meeting_data.location,
             is_online=meeting_data.is_online,
             meeting_url=meeting_url,
-            status=MeetingStatus.SCHEDULED
+            status=ModelMeetingStatus.SCHEDULED.value
         )
         
         db.add(db_meeting)
@@ -503,8 +503,11 @@ async def create_meeting(
         
         return await _build_meeting_response(meeting, db)
         
+    except HTTPException:
+        await db.rollback()
+        raise
     except Exception as e:
-        logger.error(f"Error creating meeting: {str(e)}")
+        logger.exception("Error creating meeting")
         await db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -956,6 +959,9 @@ async def _build_meeting_response(meeting: Meeting, db: AsyncSession) -> Meeting
     )
     attendees = attendees_result.scalars().all()
     
+    meeting_status_raw = str(meeting.status)
+    meeting_status_value = meeting_status_raw.split(".")[-1].lower()
+    
     return MeetingResponse(
         meeting_id=str(meeting.meeting_id),
         title=str(meeting.title),
@@ -966,7 +972,7 @@ async def _build_meeting_response(meeting: Meeting, db: AsyncSession) -> Meeting
         location=meeting.location,
         is_online=meeting.is_online,
         meeting_url=meeting.meeting_url,
-        status=MeetingStatus(str(meeting.status)),
+        status=MeetingStatus(meeting_status_value),
         organizer=OrganizerResponse(
             user_id=str(organizer.user_id),
             email=str(organizer.email),
@@ -977,7 +983,9 @@ async def _build_meeting_response(meeting: Meeting, db: AsyncSession) -> Meeting
                 attendee_id=str(a.attendee_id),
                 email=str(a.email),
                 display_name=a.display_name,
-                response_status=ResponseStatus(str(a.response_status)),
+                response_status=ResponseStatus(
+                    str(a.response_status).split(".")[-1].lower()
+                ),
                 is_organizer=a.is_organizer,
                 is_required=a.is_required
             )

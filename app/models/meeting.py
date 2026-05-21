@@ -44,8 +44,12 @@ class Meeting(Base):
     
     # Status
     status: Mapped[str] = mapped_column(
-        SQLEnum(MeetingStatus, name="meeting_status"),
-        default=MeetingStatus.SCHEDULED,
+        SQLEnum(
+            MeetingStatus,
+            name="meeting_status",
+            values_callable=lambda enum_cls: [member.value for member in enum_cls]
+        ),
+        default=MeetingStatus.SCHEDULED.value,
         nullable=False,
         index=True
     )

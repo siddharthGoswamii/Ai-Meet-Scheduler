@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
@@ -40,6 +40,51 @@ export default function Dashboard() {
         }
     });
 
+    const formatSlotTime = (isoString) => {
+        const slotDate = new Date(isoString);
+        return slotDate.toLocaleTimeString('en-IN', {
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false
+        });
+    };
+
+    const fetchBookedSlots = async (selectedDate = date) => {
+        if (!selectedDate) return;
+
+        try {
+            const res = await axios.get(
+                'http://127.0.0.1:8000/api/meetings',
+                {
+                    ...getHeaders(),
+                    params: {
+                        start_date: `${selectedDate}T00:00:00`,
+                        end_date: `${selectedDate}T23:59:59`,
+                        page: 1,
+                        page_size: 100
+                    }
+                }
+            );
+
+            const meetings = res?.data?.meetings || [];
+            const scheduledMeetings = meetings.filter(
+                meeting => String(meeting.status).toLowerCase() === 'scheduled'
+            );
+
+            setBookedSlots(
+                scheduledMeetings.map(meeting => ({
+                    meeting_id: meeting.meeting_id,
+                    meeting_url: meeting.meeting_url || '',
+                    start: formatSlotTime(meeting.start_time),
+                    end: formatSlotTime(meeting.end_time),
+                    reason: meeting.title || 'Meeting booked successfully'
+                }))
+            );
+        } catch (err) {
+            console.error('Failed to fetch booked slots:', err?.response?.data || err);
+        }
+    };
+
     // ── Step 3: Get AI suggestions ──
     const getSuggestions = async () => {
         if (!date || !emails) {
@@ -49,7 +94,6 @@ export default function Dashboard() {
 
         setLoading(true);
         setSuggestions([]);
-        setBookedSlots([]);
 
         try {
             const res = await axios.post(
@@ -61,7 +105,9 @@ export default function Dashboard() {
                 },
                 getHeaders()
             );
-            setSuggestions(res.data.suggestions || []);
+            const nextSuggestions = res.data.suggestions || [];
+            setSuggestions(nextSuggestions);
+            await fetchBookedSlots(date);
         } catch (err) {
             console.error(err);
             alert('Failed to fetch AI suggestions. Is your backend running?');
@@ -178,6 +224,20 @@ export default function Dashboard() {
             setCancellingSlot('');
         }
     };
+
+    useEffect(() => {
+        if (!token || !date) return;
+        fetchBookedSlots(date);
+    }, [token, date]);
+
+    const visibleSuggestions = useMemo(
+        () => suggestions.filter(
+            suggestion => !bookedSlots.some(
+                bookedSlot => bookedSlot.start === suggestion.start && bookedSlot.end === suggestion.end
+            )
+        ),
+        [suggestions, bookedSlots]
+    );
 
     // ── Step 5: Logout with Confirmation ──
     const logout = () => {
@@ -513,12 +573,12 @@ export default function Dashboard() {
                 </div>
 
                 {/* AI Generated Suggestions Panel */}
-                {suggestions.length > 0 && (
+                {visibleSuggestions.length > 0 && (
                     <div style={{ marginBottom: '32px' }}>
                         <h3 style={styles.sectionHeading}>
                             <span>🎯</span> Recommended Slots
                         </h3>
-                        {suggestions.map((s, i) => (
+                        {visibleSuggestions.map((s, i) => (
                             <div key={i} style={styles.slotCard} className="slot-item">
                                 <div style={styles.slotInfo}>
                                     <h4 style={styles.slotTitle}>

@@ -35,8 +35,12 @@ class MeetingAttendee(Base):
     
     # Response status
     response_status: Mapped[str] = mapped_column(
-        SQLEnum(ResponseStatus, name="response_status"),
-        default=ResponseStatus.NONE,
+        SQLEnum(
+            ResponseStatus,
+            name="response_status",
+            values_callable=lambda enum_cls: [member.value for member in enum_cls]
+        ),
+        default=ResponseStatus.NONE.value,
         nullable=False
     )
     
