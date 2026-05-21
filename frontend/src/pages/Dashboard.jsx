@@ -10,7 +10,9 @@ export default function Dashboard() {
     const [duration, setDuration]       = useState(60);
     const [emails, setEmails]           = useState('');
     const [suggestions, setSuggestions] = useState([]);
+    const [bookedSlots, setBookedSlots] = useState([]);
     const [loading, setLoading]         = useState(false);
+    const [cancellingSlot, setCancellingSlot] = useState('');
     const [meetLink, setMeetLink]       = useState('');
     const [token, setToken]             = useState('');
 
@@ -47,6 +49,7 @@ export default function Dashboard() {
 
         setLoading(true);
         setSuggestions([]);
+        setBookedSlots([]);
 
         try {
             const res = await axios.post(
@@ -96,7 +99,10 @@ export default function Dashboard() {
             );
 
             const link = createdEvent?.data?.meeting_url || '';
+            const meetingId = createdEvent?.data?.meeting_id || '';
             setMeetLink(link);
+            setBookedSlots(prev => [...prev, { ...slot, meeting_url: link, meeting_id: meetingId }]);
+            setSuggestions(prev => prev.filter(s => !(s.start === slot.start && s.end === slot.end)));
             alert(`✅ Meeting booked successfully!\nLink: ${link}`);
 
         } catch (err) {
@@ -117,6 +123,8 @@ export default function Dashboard() {
 
             if (likelyCreated) {
                 setMeetLink(fallbackLink);
+                setBookedSlots(prev => [...prev, { ...slot, meeting_url: fallbackLink }]);
+                setSuggestions(prev => prev.filter(s => !(s.start === slot.start && s.end === slot.end)));
                 alert(`✅ Meeting booked successfully!${fallbackLink ? `\nLink: ${fallbackLink}` : ''}`);
                 return;
             }
@@ -125,6 +133,49 @@ export default function Dashboard() {
                 `Failed to book the selected slot${status ? ` (${status})` : ''}. ` +
                 `${responseData?.detail || 'Check console for details.'}`
             );
+        }
+    };
+
+    const cancelBookedSlot = async (slot) => {
+        if (!slot.meeting_id) {
+            alert('This booked slot cannot be cancelled from dashboard because the meeting ID is unavailable.');
+            return;
+        }
+
+        const confirmed = window.confirm(`Cancel booked slot ${slot.start} — ${slot.end}?`);
+        if (!confirmed) return;
+
+        try {
+            setCancellingSlot(slot.meeting_id);
+
+            await axios.delete(
+                `http://127.0.0.1:8000/api/meetings/${slot.meeting_id}`,
+                {
+                    ...getHeaders(),
+                    data: {
+                        cancellation_message: 'Cancelled from dashboard',
+                        send_cancellation: true
+                    }
+                }
+            );
+
+            setBookedSlots(prev => prev.filter(s => s.meeting_id !== slot.meeting_id));
+            setSuggestions(prev => [...prev, {
+                start: slot.start,
+                end: slot.end,
+                reason: slot.reason
+            }]);
+
+            if (meetLink === slot.meeting_url) {
+                setMeetLink('');
+            }
+
+            alert('✅ Slot cancelled successfully.');
+        } catch (err) {
+            console.error('Cancel meeting error:', err?.response?.data || err);
+            alert(`Failed to cancel slot. ${err?.response?.data?.detail || 'Check console for details.'}`);
+        } finally {
+            setCancellingSlot('');
         }
     };
 
@@ -314,6 +365,7 @@ export default function Dashboard() {
         meetLink: {
             display: 'inline-flex',
             alignItems: 'center',
+            justifyContent: 'center',
             background: '#10b981',
             color: '#ffffff',
             textDecoration: 'none',
@@ -322,7 +374,31 @@ export default function Dashboard() {
             padding: '10px 20px',
             borderRadius: '8px',
             boxShadow: '0 4px 12px rgba(16, 185, 129, 0.2)',
-            transition: 'all 0.2s ease'
+            transition: 'all 0.2s ease',
+            border: 'none',
+            cursor: 'pointer'
+        },
+        slotActions: {
+            display: 'flex',
+            gap: '12px',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            justifyContent: 'flex-end'
+        },
+        cancelBtn: {
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: 'transparent',
+            color: '#ef4444',
+            border: '1px solid #ef4444',
+            fontWeight: '600',
+            fontSize: '14px',
+            padding: '10px 20px',
+            borderRadius: '8px',
+            cursor: 'pointer',
+            transition: 'all 0.2s ease',
+            whiteSpace: 'nowrap'
         }
     };
 
@@ -355,6 +431,11 @@ export default function Dashboard() {
                 }
                 .btn-meet:hover {
                     background: #059669 !important;
+                    transform: translateY(-1px);
+                }
+                .btn-cancel:hover {
+                    background: #ef4444 !important;
+                    color: #ffffff !important;
                     transform: translateY(-1px);
                 }
             `}</style>
@@ -454,6 +535,52 @@ export default function Dashboard() {
                                 >
                                     Confirm Slot
                                 </button>
+                            </div>
+                        ))}
+                    </div>
+                )}
+
+                {/* Booked Slots Panel */}
+                {bookedSlots.length > 0 && (
+                    <div style={{ marginBottom: '32px' }}>
+                        <h3 style={styles.sectionHeading}>
+                            <span>✅</span> Booked Slots
+                        </h3>
+                        {bookedSlots.map((slot, i) => (
+                            <div key={`${slot.start}-${slot.end}-${i}`} style={styles.slotCard}>
+                                <div style={styles.slotInfo}>
+                                    <h4 style={styles.slotTitle}>
+                                        {slot.start} — {slot.end}
+                                    </h4>
+                                    <p style={styles.slotReason}>
+                                        {slot.reason || 'Meeting booked successfully'}
+                                    </p>
+                                </div>
+                                <div style={styles.slotActions}>
+                                    {slot.meeting_url && (
+                                        <a
+                                            href={slot.meeting_url}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="btn-meet"
+                                            style={styles.meetLink}
+                                        >
+                                            Open Meet
+                                        </a>
+                                    )}
+                                    <button
+                                        onClick={() => cancelBookedSlot(slot)}
+                                        className="btn-cancel"
+                                        style={{
+                                            ...styles.cancelBtn,
+                                            opacity: cancellingSlot === slot.meeting_id ? 0.7 : 1,
+                                            cursor: cancellingSlot === slot.meeting_id ? 'not-allowed' : 'pointer'
+                                        }}
+                                        disabled={cancellingSlot === slot.meeting_id}
+                                    >
+                                        {cancellingSlot === slot.meeting_id ? 'Cancelling...' : 'Cancel Slot'}
+                                    </button>
+                                </div>
                             </div>
                         ))}
                     </div>
