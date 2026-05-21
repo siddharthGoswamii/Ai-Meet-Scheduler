@@ -3,9 +3,10 @@ User database model
 """
 from sqlalchemy import Column, String, DateTime, Text
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, Mapped, mapped_column
 from datetime import datetime
 import uuid
+from typing import Optional
 
 from app.db.database import Base
 
@@ -20,10 +21,10 @@ class User(Base):
     display_name = Column(String(255), nullable=False)
     teams_user_id = Column(String(255), unique=True, nullable=False, index=True)
     
-    # Encrypted tokens
-    access_token = Column(Text, nullable=True)
-    refresh_token = Column(Text, nullable=True)
-    token_expires_at = Column(DateTime, nullable=True)
+    # Encrypted tokens - using Mapped for proper type checking
+    access_token: Mapped[str | None] = mapped_column(Text, nullable=True)
+    refresh_token: Mapped[str | None] = mapped_column(Text, nullable=True)
+    token_expires_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     
     # User preferences
     timezone = Column(String(50), default="UTC", nullable=False)

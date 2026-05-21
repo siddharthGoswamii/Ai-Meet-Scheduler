@@ -52,9 +52,9 @@ export default function Dashboard() {
             const res = await axios.post(
                 'http://127.0.0.1:8000/api/meetings/suggest',
                 {
-                    attendees:      emails.split(',').map(e => e.trim()),
-                    duration_minutes: parseInt(duration),
-                    days_ahead:       14
+                    participants:     emails.split(',').map(e => e.trim()),
+                    duration_mins:    parseInt(duration),
+                    preferred_date:   date  // Add the date field!
                 },
                 getHeaders()
             );

@@ -35,6 +35,9 @@ class Settings(BaseSettings):
         default="https://www.googleapis.com/auth/calendar,https://www.googleapis.com/auth/calendar.events,https://www.googleapis.com/auth/userinfo.email,https://www.googleapis.com/auth/userinfo.profile"
     )
     
+    # Microsoft Graph API Configuration
+    GRAPH_API_ENDPOINT: str = Field(default="https://graph.microsoft.com/v1.0")
+    
     @property
     def google_scopes_list(self) -> List[str]:
         """Convert comma-separated scopes to list"""

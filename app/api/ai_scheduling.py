@@ -14,7 +14,7 @@ from app.schemas.ai_scheduling import (
     FindMeetingTimesResponse,
     OptimalTimesRequest,
     OptimalTimesResponse,
-    CalendarAvailabilityRequest,
+    CalendarAvailabilityRequest, 
     CalendarAvailabilityResponse,
     AutoScheduleRequest,
     AutoScheduleResponse,
@@ -57,6 +57,11 @@ async def find_meeting_times(
     """
     try:
         # Get user's access token
+        if not current_user.access_token:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="User access token not found"
+            )
         access_token = auth_service.decrypt_token(current_user.access_token)
         
         # Initialize AI scheduler
@@ -143,7 +148,14 @@ async def suggest_optimal_times(
     """
     try:
         # Get user's access token
+        if not current_user.access_token:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="User access token not found"
+            )
         access_token = auth_service.decrypt_token(current_user.access_token)
+        print("TOKEN BEING USED:", access_token[:50])
+        print("USER EMAIL:", current_user.email)
         
         # Initialize AI scheduler
         ai_scheduler = AISchedulerService(access_token)
@@ -241,6 +253,11 @@ async def get_calendar_availability(
     """
     try:
         # Get user's access token
+        if not current_user.access_token:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="User access token not found"
+            )
         access_token = auth_service.decrypt_token(current_user.access_token)
         
         # Initialize AI scheduler
@@ -342,6 +359,11 @@ async def auto_schedule_meeting(
     """
     try:
         # Get user's access token
+        if not current_user.access_token:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="User access token not found"
+            )
         access_token = auth_service.decrypt_token(current_user.access_token)
         
         # Initialize AI scheduler

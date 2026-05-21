@@ -71,6 +71,8 @@ class GoogleCalendarService:
         Convert a datetime to an RFC3339 timestamp expected by Google APIs.
         """
         if value.tzinfo is None:
+            IST = timezone(timedelta(hours=5, minutes=30))
+            value = value.replace(tzinfo=IST)
             return value.isoformat()
 
         return value.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
@@ -385,14 +387,34 @@ class GoogleCalendarService:
             Dict containing free/busy information
         """
         try:
+            # Get user's email to include their calendar
+            user_info = await self.get_user_profile()
+            user_email = user_info.get('email')
+            
+            # Ensure user's email is in the list (to check their own calendar)
+            all_emails = list(set(attendee_emails + ([user_email] if user_email else [])))
+            
             body = {
                 'timeMin': self._to_rfc3339(start_time),
                 'timeMax': self._to_rfc3339(end_time),
                 'timeZone': timezone,
-                'items': [{'id': email} for email in attendee_emails]
+                'items': [{'id': email} for email in all_emails]
             }
             
+            logger.info(f"Fetching freebusy for emails: {all_emails}")
+            logger.info(f"Time range: {self._to_rfc3339(start_time)} to {self._to_rfc3339(end_time)}")
+            
             freebusy_result = self.service.freebusy().query(body=body).execute()
+            
+            logger.info(f"Freebusy response received for {len(freebusy_result.get('calendars', {}))} calendars")
+            
+            # Log each calendar's busy periods for debugging
+            for email, cal_data in freebusy_result.get('calendars', {}).items():
+                busy_count = len(cal_data.get('busy', []))
+                logger.info(f"Calendar {email}: {busy_count} busy periods")
+                if busy_count > 0:
+                    logger.info(f"  Busy periods: {cal_data.get('busy', [])}")
+            
             return freebusy_result
             
         except Exception as error:
@@ -437,9 +459,11 @@ class GoogleCalendarService:
             all_busy_periods = []
             calendars = freebusy_data.get('calendars', {})
             
-            for email in attendee_emails:
-                calendar_data = calendars.get(email, {})
+            # Check ALL calendars returned (including user's own calendar)
+            logger.info(f"Processing busy periods from {len(calendars)} calendars")
+            for email, calendar_data in calendars.items():
                 busy_periods = calendar_data.get('busy', [])
+                logger.info(f"Calendar {email} has {len(busy_periods)} busy periods")
                 
                 for busy in busy_periods:
                     busy_start = datetime.fromisoformat(busy['start'].replace('Z', '+00:00'))
@@ -449,9 +473,11 @@ class GoogleCalendarService:
                         'end': busy_end,
                         'email': email
                     })
+                    logger.info(f"  Busy: {busy_start} to {busy_end}")
             
             # Sort busy periods by start time
             all_busy_periods.sort(key=lambda x: x['start'])
+            logger.info(f"Total busy periods to check: {len(all_busy_periods)}")
             
             # Find free slots
             free_slots = []
@@ -506,12 +532,11 @@ class GoogleCalendarService:
                         'day_of_week': current_time.strftime('%A'),
                         'time_of_day': current_time.strftime('%I:%M %p')
                     })
+                    logger.debug(f"Free slot found: {current_time.isoformat()} to {slot_end.isoformat()}")
                     
                     # Move to next 15-minute slot
                     current_time += timedelta(minutes=15)
-                else:
-                    # Already moved to end of busy period
-                    pass
+                # else: Already moved to end of busy period in the conflict check above
             
             # Sort by confidence score (highest first)
             free_slots.sort(key=lambda x: x['confidence_score'], reverse=True)

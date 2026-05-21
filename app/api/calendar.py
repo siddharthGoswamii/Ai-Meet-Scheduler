@@ -64,28 +64,61 @@ async def get_busy_slots(
     Returns:
         Dict with date and list of busy slots
     """
-    service = get_calendar_service(user)
+    try:
+        service = get_calendar_service(user)
 
-    # Get events for that day
-    events_result = service.events().list(
-        calendarId  = "primary",
-        timeMin     = f"{date}T00:00:00Z",
-        timeMax     = f"{date}T23:59:59Z",
-        singleEvents = True,
-        orderBy     = "startTime"
-    ).execute()
+        # Parse the date and create proper timezone-aware datetime objects
+        from datetime import datetime
+        import pytz
+        
+        # Use IST timezone
+        ist = pytz.timezone('Asia/Kolkata')
+        date_obj = datetime.strptime(date, "%Y-%m-%d")
+        
+        # Create start and end of day in IST
+        start_of_day = ist.localize(date_obj.replace(hour=0, minute=0, second=0))
+        end_of_day = ist.localize(date_obj.replace(hour=23, minute=59, second=59))
+        
+        # Convert to RFC3339 format
+        time_min = start_of_day.isoformat()
+        time_max = end_of_day.isoformat()
+        
+        logger.info(f"Fetching events for {date}: {time_min} to {time_max}")
 
-    events = events_result.get("items", [])
+        # Get events for that day
+        events_result = service.events().list(
+            calendarId="primary",
+            timeMin=time_min,
+            timeMax=time_max,
+            singleEvents=True,
+            orderBy="startTime"
+        ).execute()
 
-    busy_slots = []
-    for event in events:
-        busy_slots.append({
-            "title": event.get("summary", "Busy"),
-            "start": event["start"].get("dateTime"),
-            "end":   event["end"].get("dateTime")
-        })
+        events = events_result.get("items", [])
+        logger.info(f"Found {len(events)} events for {date}")
 
-    return {"date": date, "busy_slots": busy_slots}
+        busy_slots = []
+        for event in events:
+            # Get start and end times (handle both dateTime and date formats)
+            start = event["start"].get("dateTime") or event["start"].get("date")
+            end = event["end"].get("dateTime") or event["end"].get("date")
+            
+            busy_slots.append({
+                "title": event.get("summary", "Busy"),
+                "start": start,
+                "end": end,
+                "event_id": event.get("id")
+            })
+            logger.info(f"Event: {event.get('summary', 'Busy')} from {start} to {end}")
+
+        return {"date": date, "busy_slots": busy_slots, "total_events": len(busy_slots)}
+        
+    except Exception as e:
+        logger.error(f"Error fetching busy slots: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fetch busy slots: {str(e)}"
+        )
 
 
 # Create a meeting with Google Meet link

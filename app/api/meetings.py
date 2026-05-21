@@ -10,7 +10,9 @@ import logging
 import uuid
 
 from app.db.database import get_db
-from app.models import User, Meeting, MeetingAttendee, MeetingStatus, ResponseStatus
+from app.models import User, Meeting, MeetingAttendee
+from app.models.meeting import MeetingStatus as ModelMeetingStatus
+from app.models.meeting_attendee import ResponseStatus as ModelResponseStatus
 from app.schemas import (
     MeetingCreate,
     MeetingUpdate,
@@ -20,15 +22,373 @@ from app.schemas import (
     MeetingListItem,
     PaginationInfo,
     AttendeeResponse,
-    OrganizerResponse
+    OrganizerResponse,
+    MeetingStatus,
+    ResponseStatus
 )
 from app.services import auth_service
 from app.services.google_calendar_service import GoogleCalendarService
 from app.api.auth import get_current_user
+from datetime import timezone, timedelta
+# from datetime import datetime as dt, timezone, timedelta
+
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/meetings", tags=["Meetings"])
+@router.post("/suggest")
+async def suggest_meeting_slots(
+    request_data: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    try:
+        participants   = request_data.get("participants", [])
+        duration_mins  = request_data.get("duration_mins", 60)
+        preferred_date = request_data.get("preferred_date", "")
+
+        if not current_user.access_token:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="User access token not found"
+            )
+        access_token  = auth_service.decrypt_token(current_user.access_token)
+        refresh_token = auth_service.decrypt_token(
+            current_user.refresh_token
+        ) if current_user.refresh_token else ""
+
+        google_service = GoogleCalendarService(access_token, refresh_token)
+
+        # Parse date - handle both DD-MM-YYYY and YYYY-MM-DD formats
+        if preferred_date:
+            try:
+                # Try DD-MM-YYYY format first (from frontend)
+                date_obj = datetime.strptime(preferred_date, "%d-%m-%Y")
+                logger.info(f"Parsed date (DD-MM-YYYY): {date_obj}")
+            except ValueError:
+                try:
+                    # Try YYYY-MM-DD format
+                    date_obj = datetime.strptime(preferred_date, "%Y-%m-%d")
+                    logger.info(f"Parsed date (YYYY-MM-DD): {date_obj}")
+                except ValueError:
+                    logger.warning(f"Could not parse date '{preferred_date}', using today")
+                    date_obj = datetime.now()
+        else:
+            date_obj = datetime.now()
+            logger.info(f"No date provided, using today: {date_obj}")
+
+        # IST timezone
+        IST = timezone(timedelta(hours=5, minutes=30))
+
+        # Query full day in IST
+        start_time = date_obj.replace(hour=0,  minute=0,  second=0,  microsecond=0, tzinfo=IST)
+        end_time   = date_obj.replace(hour=23, minute=59, second=59, microsecond=0, tzinfo=IST)
+
+        # Fetch busy slots from Google Calendar
+        try:
+            # Include current user's email to check their own calendar
+            all_emails = list(set(participants + [current_user.email]))
+            logger.info(f"Checking calendars for: {all_emails}")
+            
+            freebusy_data = await google_service.get_free_busy(
+                attendee_emails=all_emails,
+                start_time=start_time,
+                end_time=end_time,
+                timezone="Asia/Kolkata"
+            )
+            busy_slots = []
+            calendars = freebusy_data.get('calendars', {})
+            
+            # Check ALL calendars returned (including user's own)
+            for email, calendar_data in calendars.items():
+                busy_periods = calendar_data.get('busy', [])
+                busy_slots.extend(busy_periods)
+                logger.info(f"Calendar {email}: {len(busy_periods)} busy periods")
+            
+            logger.info(f"Total busy slots fetched: {len(busy_slots)}")
+            if busy_slots:
+                logger.info(f"Busy slots: {busy_slots}")
+        except Exception as e:
+            logger.warning(f"Failed to fetch calendar data: {e}")
+            busy_slots = []
+
+        # Find free slots — everything in IST
+        def find_free_slots_ist(busy, date_obj, duration):
+            # Work hours in IST: 9AM to 6PM
+            work_start = date_obj.replace(hour=9,  minute=0, second=0, microsecond=0, tzinfo=IST)
+            work_end   = date_obj.replace(hour=18, minute=0, second=0, microsecond=0, tzinfo=IST)
+
+            current = work_start
+            free    = []
+
+            for b in sorted(busy, key=lambda x: x.get("start", "")):
+                try:
+                    bs = datetime.fromisoformat(b["start"].replace("Z", "+00:00")).astimezone(IST)
+                    be = datetime.fromisoformat(b["end"].replace("Z",   "+00:00")).astimezone(IST)
+
+                    if current + timedelta(minutes=duration) <= bs:
+                        free.append({
+                            "start": current.strftime("%H:%M"),
+                            "end":   bs.strftime("%H:%M")
+                        })
+                    current = max(current, be)
+                except Exception as e:
+                    logger.warning(f"Skipping busy slot: {e}")
+                    continue
+
+            if current + timedelta(minutes=duration) <= work_end:
+                free.append({
+                    "start": current.strftime("%H:%M"),
+                    "end":   work_end.strftime("%H:%M")
+                })
+
+            return free
+
+        free_slots = find_free_slots_ist(busy_slots, date_obj, duration_mins)
+        logger.info(f"Free slots found: {free_slots}")
+
+        # Only use defaults if calendar fetch returned nothing AND no busy slots
+        if not free_slots and not busy_slots:
+            free_slots = [
+                {"start": "09:00", "end": "10:00"},
+                {"start": "11:00", "end": "12:00"},
+                {"start": "14:00", "end": "15:00"},
+                {"start": "15:30", "end": "16:30"},
+            ]
+
+        reasons = [
+            "Morning slot — fresh start to the day",
+            "Mid-morning — peak productivity time",
+            "Post-lunch — good energy levels",
+            "Afternoon — wrap up the day"
+        ]
+
+        suggestions = []
+        for i, slot in enumerate(free_slots[:3]):
+            suggestions.append({
+                "start":  slot["start"],
+                "end":    slot["end"],
+                "reason": reasons[i % len(reasons)]
+            })
+
+        return {
+            "date":        preferred_date,
+            "suggestions": suggestions,
+            "total_found": len(free_slots)
+        }
+
+    except Exception as e:
+        logger.error(f"Suggest error: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+# @router.post("/suggest")
+# async def suggest_meeting_slots(
+#     request_data: dict,
+#     db: AsyncSession = Depends(get_db),
+#     current_user: User = Depends(get_current_user)
+# ):
+#     try:
+#         participants   = request_data.get("participants", [])
+#         duration_mins  = request_data.get("duration_mins", 60)
+#         preferred_date = request_data.get("preferred_date", "")
+
+#         # Get user tokens
+#         if not current_user.access_token:
+#             raise HTTPException(
+#                 status_code=status.HTTP_401_UNAUTHORIZED,
+#                 detail="User access token not found"
+#             )
+#         access_token  = auth_service.decrypt_token(current_user.access_token)
+#         refresh_token = auth_service.decrypt_token(
+#             current_user.refresh_token
+#         ) if current_user.refresh_token else ""
+
+#         # :white_check_mark: Use Google Calendar Service
+#         google_service = GoogleCalendarService(access_token, refresh_token)
+
+#         # Get busy slots from Google Calendar
+#         try:
+#             # Parse the preferred date and create time range
+#             from datetime import datetime, timedelta
+#             if preferred_date:
+#                 try:
+#                     date_obj = datetime.strptime(preferred_date, "%Y-%m-%d")
+#                 except:
+#                     date_obj = datetime.now()
+#             else:
+#                 date_obj = datetime.now()
+            
+#             # Set time range for the entire day
+#             # start_time = date_obj.replace(hour=0, minute=0, second=0, microsecond=0)
+#             # end_time = date_obj.replace(hour=23, minute=59, second=59, microsecond=0)
+#             IST = timezone(timedelta(hours=5, minutes=30))
+#             start_time = date_obj.replace(hour=0, minute=0, second=0, microsecond=0, tzinfo=IST)
+#             end_time   = date_obj.replace(hour=23, minute=59, second=59, microsecond=0, tzinfo=IST)
+            
+#             # Get free/busy data from Google Calendar
+#             freebusy_data = await google_service.get_free_busy(
+#                 attendee_emails=participants,
+#                 start_time=start_time,
+#                 end_time=end_time,
+#                 timezone="UTC"
+#             )
+            
+#             # Extract busy slots from the response
+#             busy_slots = []
+#             calendars = freebusy_data.get('calendars', {})
+#             for email in participants:
+#                 calendar_data = calendars.get(email, {})
+#                 busy_periods = calendar_data.get('busy', [])
+#                 busy_slots.extend(busy_periods)
+#         except Exception as e:
+#             logger.warning(f"Failed to fetch calendar data: {e}")
+#             busy_slots = []  # if calendar fetch fails use empty
+
+#         # Find free slots manually
+#         from datetime import datetime, timedelta
+
+#         def find_free_slots(busy, date, duration):
+#             # Parse the date string to get date_obj
+#             try:
+#                 parsed_date = datetime.strptime(date, "%Y-%m-%d") if date else datetime.now()
+#             except:
+#                 parsed_date = datetime.now()
+            
+#             # Set work hours in UTC (9AM IST = 3:30 UTC, 6PM IST = 12:30 UTC)
+#             work_start = datetime(year=parsed_date.year, month=parsed_date.month, day=parsed_date.day,
+#                           hour=9, minute=30, second=0)  # 9AM IST = 3:30 UTC
+#             work_end   = datetime(year=parsed_date.year, month=parsed_date.month, day=parsed_date.day,
+#                           hour=, minute=30, second=0) # 6PM IST = 12:30 UTC
+
+#             free = []
+#             current = work_start
+
+#             for b in sorted(busy, key=lambda x: x.get("start", "")):
+#                 try:
+#                     # Parse busy slot start time
+#                     bs = datetime.fromisoformat(b["start"].replace("Z", "+00:00"))
+#                     bs = bs.astimezone(timezone.utc).replace(tzinfo=None)  # normalize to UTC naive
+
+#                     # Parse busy slot end time
+#                     be = datetime.fromisoformat(b["end"].replace("Z", "+00:00"))
+#                     be = be.astimezone(timezone.utc).replace(tzinfo=None)
+#                     if current + timedelta(minutes=duration) <= bs:
+#                         free.append({
+#                             "start": current.strftime("%H:%M"),
+#                             "end":   bs.strftime("%H:%M")
+#                         })
+#                     current = max(current, be)
+#                 # except:
+#                 #     continue
+#                 except Exception as e:
+#                     logger.warning(f"Skipping busy slot due to parse error: {e}")
+#                     continue
+
+#             if current + timedelta(minutes=duration) <= work_end:
+#                 free.append({
+#                     "start": current.strftime("%H:%M"),
+#                     "end":   work_end.strftime("%H:%M")
+#                 })
+
+#             return free
+
+#         free_slots = find_free_slots(busy_slots, preferred_date, duration_mins)
+
+#         # If no busy slots found → generate default slots
+#         if not free_slots:
+#             free_slots = [
+#                 {"start": "09:00", "end": "10:00"},
+#                 {"start": "11:00", "end": "12:00"},
+#                 {"start": "14:00", "end": "15:00"},
+#                 {"start": "15:30", "end": "16:30"},
+#             ]
+
+#         # Build suggestions
+#         reasons = [
+#             "Morning slot — fresh start to the day :sunrise:",
+#             "Mid-morning — peak productivity time :sunny:",
+#             "Post-lunch — good energy levels :muscle:",
+#             "Afternoon — wrap up the day :city_sunset:"
+#         ]
+
+#         suggestions = []
+#         for i, slot in enumerate(free_slots[:3]):
+#             suggestions.append({
+#                 "start":  slot["start"],
+#                 "end":    slot["end"],
+#                 "reason": reasons[i % len(reasons)]
+#             })
+
+#         return {
+#             "date":        preferred_date,
+#             "suggestions": suggestions,
+#             "total_found": len(free_slots)
+#         }
+
+#     except Exception as e:
+#         logger.error(f"Suggest error: {str(e)}")
+#         import traceback
+#         traceback.print_exc()
+#         raise HTTPException(
+#             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+#             detail=str(e)
+#         )
+
+
+def find_free_slots(busy_slots: list, date: str, duration_mins: int) -> list:
+    """Find free time slots in a day"""
+    from datetime import datetime, timedelta
+
+    work_start = datetime.strptime(f"{date} 09:00", "%Y-%m-%d %H:%M")
+    work_end   = datetime.strptime(f"{date} 18:00", "%Y-%m-%d %H:%M")
+    current    = work_start
+    free_slots = []
+
+    busy_sorted = sorted(busy_slots, key=lambda x: x.get("start", ""))
+
+    for busy in busy_sorted:
+        try:
+            busy_start = datetime.fromisoformat(
+                busy["start"].replace("Z", "+00:00")
+            ).replace(tzinfo=None)
+
+            if current + timedelta(minutes=duration_mins) <= busy_start:
+                free_slots.append({
+                    "start": current.strftime("%H:%M"),
+                    "end":   busy_start.strftime("%H:%M")
+                })
+            busy_end = datetime.fromisoformat(
+                busy["end"].replace("Z", "+00:00")
+            ).replace(tzinfo=None)
+            current = max(current, busy_end)
+        except:
+            continue
+
+    if current + timedelta(minutes=duration_mins) <= work_end:
+        free_slots.append({
+            "start": current.strftime("%H:%M"),
+            "end":   work_end.strftime("%H:%M")
+        })
+
+    return free_slots
+
+
+def get_slot_reason(index: int, start_time: str) -> str:
+    """Get AI reason for slot suggestion"""
+    hour = int(start_time.split(":")[0]) if start_time else 9
+
+    if hour < 12:
+        return "Morning slot — everyone is fresh and focused :sunrise:"
+    elif hour < 14:
+        return "Pre-lunch slot — good energy levels :sunny:"
+    elif hour < 17:
+        return "Afternoon slot — post-lunch productivity :muscle:"
+    else:
+        return "End of day slot — wrap up the day :city_sunset:"
 
 
 @router.post("", response_model=MeetingResponse, status_code=status.HTTP_201_CREATED)
@@ -50,6 +410,11 @@ async def create_meeting(
     """
     try:
         # Get user's access token
+        if not current_user.access_token:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="User access token not found"
+            )
         access_token = auth_service.decrypt_token(current_user.access_token)
         refresh_token = auth_service.decrypt_token(current_user.refresh_token) if current_user.refresh_token else ""
         
@@ -106,7 +471,7 @@ async def create_meeting(
                 display_name=attendee_data.display_name,
                 is_required=attendee_data.is_required,
                 is_organizer=False,
-                response_status=ResponseStatus.NONE
+                response_status=ModelResponseStatus.NONE
             )
             db.add(attendee)
         
@@ -118,7 +483,7 @@ async def create_meeting(
             display_name=current_user.display_name,
             is_required=True,
             is_organizer=True,
-            response_status=ResponseStatus.ACCEPTED
+            response_status=ModelResponseStatus.ACCEPTED
         )
         db.add(organizer_attendee)
         
@@ -188,7 +553,7 @@ async def list_meetings(
         
         # Get total count
         count_query = select(func.count()).select_from(query.subquery())
-        total_count = await db.scalar(count_query)
+        total_count = await db.scalar(count_query) or 0
         
         # Apply pagination
         offset = (page - 1) * page_size
@@ -205,15 +570,15 @@ async def list_meetings(
             attendee_count_query = select(func.count()).where(
                 MeetingAttendee.meeting_id == meeting.meeting_id
             )
-            attendee_count = await db.scalar(attendee_count_query)
+            attendee_count = await db.scalar(attendee_count_query) or 0
             
             meeting_items.append(
                 MeetingListItem(
                     meeting_id=str(meeting.meeting_id),
-                    title=meeting.title,
+                    title=str(meeting.title),
                     start_time=meeting.start_time,
                     end_time=meeting.end_time,
-                    status=meeting.status,
+                    status=MeetingStatus(str(meeting.status)),
                     attendee_count=attendee_count,
                     is_organizer=True
                 )
@@ -284,7 +649,7 @@ async def get_meeting(
             )
         
         # Check if user has access (organizer or attendee)
-        if meeting.organizer_id != current_user.user_id:
+        if str(meeting.organizer_id) != str(current_user.user_id):
             attendee_result = await db.execute(
                 select(MeetingAttendee).where(
                     and_(
@@ -353,20 +718,25 @@ async def update_meeting(
             )
         
         # Check if user is organizer
-        if meeting.organizer_id != current_user.user_id:
+        if str(meeting.organizer_id) != str(current_user.user_id):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Only organizer can update meeting"
             )
         
         # Check if meeting is cancelled
-        if meeting.status == MeetingStatus.CANCELLED:
+        if meeting.status == ModelMeetingStatus.CANCELLED:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Cannot update cancelled meeting"
             )
         
         # Update via Google Calendar API
+        if not current_user.access_token:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="User access token not found"
+            )
         access_token = auth_service.decrypt_token(current_user.access_token)
         refresh_token = auth_service.decrypt_token(current_user.refresh_token) if current_user.refresh_token else ""
         google_service = GoogleCalendarService(access_token, refresh_token)
@@ -393,6 +763,13 @@ async def update_meeting(
                 }
                 for a in update_data.attendees
             ]
+        
+        # Validate teams_meeting_id exists
+        if not meeting.teams_meeting_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Meeting does not have a Google Calendar event ID"
+            )
         
         await google_service.update_meeting(meeting.teams_meeting_id, updates)
         
@@ -432,7 +809,7 @@ async def update_meeting(
                     display_name=attendee_data.display_name,
                     is_required=attendee_data.is_required,
                     is_organizer=False,
-                    response_status=ResponseStatus.NONE
+                    response_status=ModelResponseStatus.NONE
                 )
                 db.add(attendee)
         
@@ -494,23 +871,35 @@ async def cancel_meeting(
             )
         
         # Check if user is organizer
-        if meeting.organizer_id != current_user.user_id:
+        if str(meeting.organizer_id) != str(current_user.user_id):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Only organizer can cancel meeting"
             )
         
         # Check if already cancelled
-        if meeting.status == MeetingStatus.CANCELLED:
+        if meeting.status == ModelMeetingStatus.CANCELLED:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Meeting is already cancelled"
             )
         
         # Cancel via Google Calendar API
+        if not current_user.access_token:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="User access token not found"
+            )
         access_token = auth_service.decrypt_token(current_user.access_token)
         refresh_token = auth_service.decrypt_token(current_user.refresh_token) if current_user.refresh_token else ""
         google_service = GoogleCalendarService(access_token, refresh_token)
+        
+        # Validate teams_meeting_id exists
+        if not meeting.teams_meeting_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Meeting does not have a Google Calendar event ID"
+            )
         
         await google_service.cancel_meeting(
             meeting.teams_meeting_id,
@@ -518,7 +907,7 @@ async def cancel_meeting(
         )
         
         # Update database
-        meeting.status = MeetingStatus.CANCELLED
+        meeting.status = ModelMeetingStatus.CANCELLED
         meeting.cancelled_at = datetime.utcnow()
         meeting.updated_at = datetime.utcnow()
         
@@ -565,26 +954,26 @@ async def _build_meeting_response(meeting: Meeting, db: AsyncSession) -> Meeting
     
     return MeetingResponse(
         meeting_id=str(meeting.meeting_id),
-        title=meeting.title,
+        title=str(meeting.title),
         description=meeting.description,
         start_time=meeting.start_time,
         end_time=meeting.end_time,
-        timezone=meeting.timezone,
+        timezone=str(meeting.timezone),
         location=meeting.location,
         is_online=meeting.is_online,
         meeting_url=meeting.meeting_url,
-        status=meeting.status,
+        status=MeetingStatus(str(meeting.status)),
         organizer=OrganizerResponse(
             user_id=str(organizer.user_id),
-            email=organizer.email,
-            display_name=organizer.display_name
+            email=str(organizer.email),
+            display_name=str(organizer.display_name)
         ),
         attendees=[
             AttendeeResponse(
                 attendee_id=str(a.attendee_id),
-                email=a.email,
+                email=str(a.email),
                 display_name=a.display_name,
-                response_status=a.response_status,
+                response_status=ResponseStatus(str(a.response_status)),
                 is_organizer=a.is_organizer,
                 is_required=a.is_required
             )

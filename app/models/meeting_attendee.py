@@ -3,10 +3,11 @@ Meeting Attendee database model
 """
 from sqlalchemy import Column, String, DateTime, Boolean, ForeignKey, Enum as SQLEnum
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, Mapped, mapped_column
 from datetime import datetime
 import uuid
 import enum
+from typing import Optional
 
 from app.db.database import Base
 
@@ -28,24 +29,24 @@ class MeetingAttendee(Base):
     meeting_id = Column(UUID(as_uuid=True), ForeignKey("meetings.meeting_id"), nullable=False, index=True)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.user_id"), nullable=True, index=True)
     
-    # Attendee information
-    email = Column(String(255), nullable=False, index=True)
-    display_name = Column(String(255), nullable=True)
+    # Attendee information - using Mapped for proper type checking
+    email: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    display_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     
     # Response status
-    response_status = Column(
+    response_status: Mapped[str] = mapped_column(
         SQLEnum(ResponseStatus, name="response_status"),
         default=ResponseStatus.NONE,
         nullable=False
     )
     
     # Attendee properties
-    is_organizer = Column(Boolean, default=False, nullable=False)
-    is_required = Column(Boolean, default=True, nullable=False)
+    is_organizer: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    is_required: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     
     # Timestamps
     added_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    response_time = Column(DateTime, nullable=True)
+    response_time: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     
     # Relationships
     meeting = relationship("Meeting", back_populates="attendees")
