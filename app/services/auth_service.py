@@ -55,24 +55,40 @@ class AuthService:
         }
 
     def get_authorization_url(self) -> tuple[str, str, str]:
+        # Create flow with PKCE enabled
         flow = Flow.from_client_config(
             self.client_config,
             scopes=self.scopes,
             redirect_uri=self.redirect_uri
         )
+        
+        # Enable PKCE by setting code_verifier before generating auth URL
+        # This will automatically generate a code_verifier and code_challenge
+        import secrets
+        import hashlib
+        import base64
+        
+        # Generate a cryptographically secure random code verifier
+        code_verifier = base64.urlsafe_b64encode(secrets.token_bytes(32)).decode('utf-8').rstrip('=')
+        
+        # Generate code challenge from verifier
+        code_challenge = base64.urlsafe_b64encode(
+            hashlib.sha256(code_verifier.encode('utf-8')).digest()
+        ).decode('utf-8').rstrip('=')
+        
+        # Set the code verifier on the flow
+        flow.code_verifier = code_verifier
 
+        # Generate authorization URL with PKCE parameters
         auth_url, state = flow.authorization_url(
             access_type='offline',
             include_granted_scopes='false',
-            prompt='consent'
+            prompt='consent',
+            code_challenge=code_challenge,
+            code_challenge_method='S256'
         )
 
-        # Extract the generated code verifier from the flow
-        code_verifier = flow.code_verifier
-        
-        if code_verifier is None:
-            raise ValueError("Failed to generate PKCE code verifier")
-
+        logger.info(f"Generated auth URL with PKCE enabled")
         return auth_url, state, code_verifier
 
     async def get_token_from_code(self, code: str, state: str, code_verifier: str) -> Dict[str, Any]:
