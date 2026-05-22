@@ -15,6 +15,7 @@ from app.models import User
 from app.schemas import UserResponse, TokenData
 from app.services import auth_service
 from app.services.google_calendar_service import GoogleCalendarService
+from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -145,7 +146,7 @@ async def auth_callback(
 
         # Redirect to React dashboard with token
         return RedirectResponse(
-            url=f"http://localhost:3000/dashboard?token={jwt_access_token}&refresh={jwt_refresh_token}"
+            url=f"{settings.FRONTEND_URL}/dashboard?token={jwt_access_token}&refresh={jwt_refresh_token}"
         )
         
     except HTTPException:

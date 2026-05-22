@@ -53,6 +53,9 @@ class Settings(BaseSettings):
     CORS_ORIGINS: str = "http://localhost:3000"
     CORS_ALLOW_CREDENTIALS: bool = True
     
+    # Frontend URL (for OAuth callback redirects)
+    FRONTEND_URL: str = "http://localhost:3000"
+    
     @property
     def cors_origins_list(self) -> List[str]:
         """Convert comma-separated origins to list"""
