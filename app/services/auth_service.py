@@ -2,7 +2,7 @@
 Authentication service for Google OAuth 2.0
 """
 
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from datetime import datetime, timedelta
 import logging
 
@@ -18,6 +18,10 @@ from cryptography.fernet import Fernet
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
+
+# In-memory cache for OAuth state and code_verifier
+# In production, use Redis or a database for distributed systems
+_oauth_cache: Dict[str, Dict[str, Any]] = {}
 
 
 class AuthService:
@@ -88,8 +92,32 @@ class AuthService:
             code_challenge_method='S256'
         )
 
-        logger.info(f"Generated auth URL with PKCE enabled")
+        # Store state and code_verifier in cache with expiration
+        _oauth_cache[state] = {
+            'code_verifier': code_verifier,
+            'created_at': datetime.utcnow()
+        }
+        
+        logger.info(f"Generated auth URL with PKCE enabled, state cached")
         return auth_url, state, code_verifier
+    
+    def get_cached_oauth_data(self, state: str) -> Optional[Dict[str, Any]]:
+        """Retrieve OAuth data from cache and clean up expired entries"""
+        # Clean up expired entries (older than 10 minutes)
+        current_time = datetime.utcnow()
+        expired_states = [
+            s for s, data in _oauth_cache.items()
+            if (current_time - data['created_at']).total_seconds() > 600
+        ]
+        for s in expired_states:
+            del _oauth_cache[s]
+        
+        # Return the requested state data
+        return _oauth_cache.get(state)
+    
+    def remove_cached_oauth_data(self, state: str) -> None:
+        """Remove OAuth data from cache after use"""
+        _oauth_cache.pop(state, None)
 
     async def get_token_from_code(self, code: str, state: str, code_verifier: str) -> Dict[str, Any]:
         flow = Flow.from_client_config(

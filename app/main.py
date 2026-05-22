@@ -70,10 +70,10 @@ app.add_middleware(
 app.add_middleware(
     SessionMiddleware,
     secret_key=settings.SECRET_KEY,
-    session_cookie="teams_auth_session",
-    same_site="none" if settings.ENVIRONMENT == "production" else "lax",
-    https_only=settings.ENVIRONMENT == "production",  # True in production, False in development
-    domain=None
+    session_cookie="ai_meet_session",
+    same_site="lax",   # Changed from "none" - lax works better for OAuth redirects
+    https_only=True,   # Required for production HTTPS
+    max_age=3600,      # 1 hour session timeout
 )
 
 # # 2. ADD THE SESSION MIDDLEWARE HERE

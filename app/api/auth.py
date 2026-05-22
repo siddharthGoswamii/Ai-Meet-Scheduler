@@ -60,30 +60,31 @@ async def auth_callback(
     Handle OAuth callback from Google and redirect back to the React Frontend
     """
     try:
-        # 1. Pull the original state and code_verifier out of the signed session cookie
-        saved_state = request.session.get("oauth_state")
-        code_verifier = request.session.get("code_verifier")
+        # 1. Retrieve OAuth data from cache using state
+        oauth_data = auth_service.get_cached_oauth_data(state)
         
         # 2. Verify state presence and guard against CSRF issues
-        if not saved_state or saved_state != state:
+        if not oauth_data:
+            logger.error(f"OAuth state not found in cache: {state}")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Authentication failed: State mismatch or session expired."
             )
         
+        code_verifier = oauth_data.get('code_verifier')
+        
         # 3. Verify code_verifier presence (required for PKCE flow)
         if not code_verifier:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Authentication failed: Code verifier missing from session."
+                detail="Authentication failed: Code verifier missing."
             )
         
-        # 3. Consume and clear both values immediately from session storage
-        request.session.pop("oauth_state", None)
-        request.session.pop("code_verifier", None)
+        # 4. Remove from cache immediately after retrieval (one-time use)
+        auth_service.remove_cached_oauth_data(state)
 
-        # 4. Supply code, state, AND code_verifier to exchange tokens safely
-        token_result = await auth_service.get_token_from_code(code, state=saved_state, code_verifier=code_verifier)
+        # 5. Supply code, state, AND code_verifier to exchange tokens safely
+        token_result = await auth_service.get_token_from_code(code, state=state, code_verifier=code_verifier)
         
         access_token = token_result.get("access_token")
         refresh_token = token_result.get("refresh_token")
