@@ -36,11 +36,11 @@ export default function Dashboard() {
     }, [searchParams, navigate]);
 
     // ── Step 2: Get auth headers ──
-    const getHeaders = () => ({
+    const getHeaders = useCallback(() => ({
         headers: {
             Authorization: `Bearer ${localStorage.getItem('access_token')}`
         }
-    });
+    }), []);
 
     const formatSlotTime = (isoString) => {
         const slotDate = new Date(isoString);
