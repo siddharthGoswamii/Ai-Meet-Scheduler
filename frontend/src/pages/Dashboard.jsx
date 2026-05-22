@@ -1,6 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
+
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
 export default function Dashboard() {
     const [searchParams] = useSearchParams();
@@ -49,12 +51,12 @@ export default function Dashboard() {
         });
     };
 
-    const fetchBookedSlots = async (selectedDate = date) => {
+    const fetchBookedSlots = useCallback(async (selectedDate = date) => {
         if (!selectedDate) return;
 
         try {
             const res = await axios.get(
-                'http://127.0.0.1:8000/api/meetings',
+                `${API_URL}/api/meetings`,
                 {
                     ...getHeaders(),
                     params: {
@@ -83,7 +85,7 @@ export default function Dashboard() {
         } catch (err) {
             console.error('Failed to fetch booked slots:', err?.response?.data || err);
         }
-    };
+    }, [date, getHeaders]);
 
     // ── Step 3: Get AI suggestions ──
     const getSuggestions = async () => {
@@ -97,7 +99,7 @@ export default function Dashboard() {
 
         try {
             const res = await axios.post(
-                'http://127.0.0.1:8000/api/meetings/suggest',
+                `${API_URL}/api/meetings/suggest`,
                 {
                     participants:     emails.split(',').map(e => e.trim()),
                     duration_mins:    parseInt(duration),
@@ -126,7 +128,7 @@ export default function Dashboard() {
             const endDateTime = new Date(`${date}T${slot.end}:00`);
 
             createdEvent = await axios.post(
-                'http://127.0.0.1:8000/api/meetings',
+                `${API_URL}/api/meetings`,
                 {
                     title: 'Team Meeting',
                     description: 'Scheduled via AI Meeting Scheduler',
@@ -195,7 +197,7 @@ export default function Dashboard() {
             setCancellingSlot(slot.meeting_id);
 
             await axios.delete(
-                `http://127.0.0.1:8000/api/meetings/${slot.meeting_id}`,
+                `${API_URL}/api/meetings/${slot.meeting_id}`,
                 {
                     ...getHeaders(),
                     data: {
@@ -228,7 +230,7 @@ export default function Dashboard() {
     useEffect(() => {
         if (!token || !date) return;
         fetchBookedSlots(date);
-    }, [token, date]);
+    }, [token, date, fetchBookedSlots]);
 
     const visibleSuggestions = useMemo(
         () => suggestions.filter(
