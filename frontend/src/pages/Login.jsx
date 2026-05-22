@@ -84,7 +84,7 @@ export default function Login() {
   const handleGoogleLogin = async () => {
     try {
       const res = await axios.get(
-        'http://localhost:8000/api/auth/login',
+        'https://ai-meet-scheduler-eimp.onrender.com/api/auth/login',
         { withCredentials: true }
       );
 
