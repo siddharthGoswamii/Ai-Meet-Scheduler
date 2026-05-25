@@ -11,6 +11,7 @@ export default function Dashboard() {
     const [date, setDate]               = useState('');
     const [duration, setDuration]       = useState(60);
     const [emails, setEmails]           = useState('');
+    const [meetingTitle, setMeetingTitle] = useState('');
     const [suggestions, setSuggestions] = useState([]);
     const [bookedSlots, setBookedSlots] = useState([]);
     const [loading, setLoading]         = useState(false);
@@ -120,6 +121,12 @@ export default function Dashboard() {
 
     // ── Step 4: Book a meeting ──
     const bookMeeting = async (slot) => {
+        // Prompt for meeting title if not provided
+        if (!meetingTitle || meetingTitle.trim() === '') {
+            alert('Please enter a meeting title before booking a slot.');
+            return;
+        }
+
         let createdEvent = null;
 
         try {
@@ -130,7 +137,7 @@ export default function Dashboard() {
             createdEvent = await axios.post(
                 `${API_URL}/api/meetings`,
                 {
-                    title: 'Team Meeting',
+                    title: meetingTitle.trim(),
                     description: 'Scheduled via AI Meeting Scheduler',
                     start_time: startDateTime.toISOString(),
                     end_time: endDateTime.toISOString(),
@@ -576,6 +583,18 @@ export default function Dashboard() {
                                 <option value={90}>1.5 hours</option>
                             </select>
                         </div>
+                    </div>
+
+                    {/* Meeting Title input */}
+                    <div style={{ ...styles.fieldGroup, marginBottom: '24px' }}>
+                        <label style={styles.label}>Meeting Title</label>
+                        <input
+                            type="text"
+                            placeholder="e.g. Team Standup, Project Review, Client Meeting"
+                            value={meetingTitle}
+                            onChange={e => setMeetingTitle(e.target.value)}
+                            style={styles.input}
+                        />
                     </div>
 
                     {/* Emails inputs */}
