@@ -735,7 +735,7 @@ export default function Dashboard() {
                                 color: '#9ca3af',
                                 fontStyle: 'italic'
                             }}>
-                                "Smart meetings. Zero conflicts. Maximum productivity."
+                                "AI-Powered Team Coordination System"
                             </p>
                         </div>
 
