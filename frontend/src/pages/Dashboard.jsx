@@ -907,8 +907,8 @@ export default function Dashboard() {
                                                     color: '#ffffff',
                                                     textDecoration: 'none',
                                                     fontWeight: '600',
-                                                    fontSize: '14px',
-                                                    padding: '10px 20px',
+                                                    fontSize: '12px',
+                                                    padding: '8px 14px',
                                                     borderRadius: '8px',
                                                     transition: 'all 0.2s ease',
                                                     border: 'none',
@@ -916,7 +916,7 @@ export default function Dashboard() {
                                                     whiteSpace: 'nowrap'
                                                 }}
                                             >
-                                                📱 Share on WhatsApp
+                                                📱 WhatsApp
                                             </a>
                                         </>
                                     )}
