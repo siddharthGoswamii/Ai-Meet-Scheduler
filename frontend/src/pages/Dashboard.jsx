@@ -507,7 +507,7 @@ export default function Dashboard() {
                 {/* Header */}
                 <div style={styles.header}>
                     <div style={styles.titleContainer}>
-                        <h2 style={styles.title}>AI Scheduler</h2>
+                        <h2 style={styles.title}>AI Meet Scheduler</h2>
                         <span style={styles.badge}>v1.0-Beta</span>
                     </div>
                     <button onClick={logout} style={styles.logoutBtn} className="btn-logout">
