@@ -62,7 +62,7 @@ app.add_middleware(
     SessionMiddleware,
     secret_key=settings.SECRET_KEY,
     session_cookie="ai_meet_session",
-    same_site="lax",   # Changed from "none" - lax works better for OAuth redirects
+    same_site="none",   # Changed from "none" - lax works better for OAuth redirects
     https_only=True,   # Required for production HTTPS
     max_age=3600,      # 1 hour session timeout
 )
