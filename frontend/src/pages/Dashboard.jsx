@@ -18,6 +18,12 @@ export default function Dashboard() {
     const [cancellingSlot, setCancellingSlot] = useState('');
     const [meetLink, setMeetLink]       = useState('');
     const [token, setToken]             = useState('');
+    
+    // Time selection modal state
+    const [showTimeModal, setShowTimeModal] = useState(false);
+    const [selectedSlot, setSelectedSlot] = useState(null);
+    const [customStartTime, setCustomStartTime] = useState('');
+    const [customEndTime, setCustomEndTime] = useState('');
 
     // ── Step 1: Get token from URL on load ──
     useEffect(() => {
@@ -119,11 +125,43 @@ export default function Dashboard() {
         }
     };
 
-    // ── Step 4: Book a meeting ──
-    const bookMeeting = async (slot) => {
+    // ── Step 4: Open time selection modal ──
+    const openTimeSelectionModal = (slot) => {
         // Prompt for meeting title if not provided
         if (!meetingTitle || meetingTitle.trim() === '') {
             alert('Please enter a meeting title before booking a slot.');
+            return;
+        }
+        
+        setSelectedSlot(slot);
+        setCustomStartTime(slot.start);
+        setCustomEndTime(slot.end);
+        setShowTimeModal(true);
+    };
+
+    // Helper function to convert time string (HH:MM) to minutes
+    const timeToMinutes = (timeStr) => {
+        const [hours, minutes] = timeStr.split(':').map(Number);
+        return hours * 60 + minutes;
+    };
+
+    // ── Step 5: Book a meeting with custom time ──
+    const bookMeeting = async () => {
+        if (!selectedSlot) return;
+
+        // Validate custom time range
+        const slotStartMinutes = timeToMinutes(selectedSlot.start);
+        const slotEndMinutes = timeToMinutes(selectedSlot.end);
+        const customStartMinutes = timeToMinutes(customStartTime);
+        const customEndMinutes = timeToMinutes(customEndTime);
+
+        if (customStartMinutes < slotStartMinutes || customEndMinutes > slotEndMinutes) {
+            alert(`Please select a time range within the available slot (${selectedSlot.start} - ${selectedSlot.end})`);
+            return;
+        }
+
+        if (customStartMinutes >= customEndMinutes) {
+            alert('End time must be after start time.');
             return;
         }
 
@@ -131,8 +169,8 @@ export default function Dashboard() {
 
         try {
             // Parse the date and times correctly
-            const startDateTime = new Date(`${date}T${slot.start}:00`);
-            const endDateTime = new Date(`${date}T${slot.end}:00`);
+            const startDateTime = new Date(`${date}T${customStartTime}:00`);
+            const endDateTime = new Date(`${date}T${customEndTime}:00`);
 
             createdEvent = await axios.post(
                 `${API_URL}/api/meetings`,
@@ -156,9 +194,25 @@ export default function Dashboard() {
             const link = createdEvent?.data?.meeting_url || '';
             const meetingId = createdEvent?.data?.meeting_id || '';
             setMeetLink(link);
-            setBookedSlots(prev => [...prev, { ...slot, meeting_url: link, meeting_id: meetingId }]);
-            setSuggestions(prev => prev.filter(s => !(s.start === slot.start && s.end === slot.end)));
-            alert(`✅ Meeting booked successfully!\nLink: ${link}`);
+            
+            // Add booked slot with custom times
+            const bookedSlot = {
+                start: customStartTime,
+                end: customEndTime,
+                meeting_url: link,
+                meeting_id: meetingId,
+                reason: meetingTitle
+            };
+            setBookedSlots(prev => [...prev, bookedSlot]);
+            
+            // Remove the original suggestion slot
+            setSuggestions(prev => prev.filter(s => !(s.start === selectedSlot.start && s.end === selectedSlot.end)));
+            
+            // Close modal and reset
+            setShowTimeModal(false);
+            setSelectedSlot(null);
+            
+            alert(`✅ Meeting booked successfully!\nTime: ${customStartTime} - ${customEndTime}\nLink: ${link}`);
 
         } catch (err) {
             const status = err?.response?.status;
@@ -178,9 +232,17 @@ export default function Dashboard() {
 
             if (likelyCreated) {
                 setMeetLink(fallbackLink);
-                setBookedSlots(prev => [...prev, { ...slot, meeting_url: fallbackLink }]);
-                setSuggestions(prev => prev.filter(s => !(s.start === slot.start && s.end === slot.end)));
-                alert(`✅ Meeting booked successfully!${fallbackLink ? `\nLink: ${fallbackLink}` : ''}`);
+                const bookedSlot = {
+                    start: customStartTime,
+                    end: customEndTime,
+                    meeting_url: fallbackLink,
+                    reason: meetingTitle
+                };
+                setBookedSlots(prev => [...prev, bookedSlot]);
+                setSuggestions(prev => prev.filter(s => !(s.start === selectedSlot.start && s.end === selectedSlot.end)));
+                setShowTimeModal(false);
+                setSelectedSlot(null);
+                alert(`✅ Meeting booked successfully!\nTime: ${customStartTime} - ${customEndTime}${fallbackLink ? `\nLink: ${fallbackLink}` : ''}`);
                 return;
             }
 
@@ -468,6 +530,92 @@ export default function Dashboard() {
             cursor: 'pointer',
             transition: 'all 0.2s ease',
             whiteSpace: 'nowrap'
+        },
+        modalOverlay: {
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0, 0, 0, 0.75)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+            padding: '20px'
+        },
+        modalContent: {
+            background: '#111827',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
+            borderRadius: '16px',
+            padding: '32px',
+            maxWidth: '500px',
+            width: '100%',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
+        },
+        modalTitle: {
+            color: '#ffffff',
+            fontSize: '20px',
+            fontWeight: '700',
+            marginTop: 0,
+            marginBottom: '24px'
+        },
+        modalLabel: {
+            display: 'block',
+            fontSize: '12px',
+            fontWeight: '600',
+            color: '#9ca3af',
+            textTransform: 'uppercase',
+            letterSpacing: '0.5px',
+            marginBottom: '8px',
+            marginTop: '16px'
+        },
+        timeInput: {
+            width: '100%',
+            padding: '12px 16px',
+            borderRadius: '10px',
+            background: '#1f2937',
+            color: '#ffffff',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
+            fontSize: '15px',
+            outline: 'none',
+            transition: 'all 0.2s ease',
+            boxSizing: 'border-box'
+        },
+        modalButtons: {
+            display: 'flex',
+            gap: '12px',
+            marginTop: '28px'
+        },
+        modalBtnPrimary: {
+            flex: 1,
+            background: '#3b82f6',
+            color: '#ffffff',
+            padding: '12px 24px',
+            borderRadius: '10px',
+            border: 'none',
+            cursor: 'pointer',
+            fontWeight: '600',
+            fontSize: '14px',
+            transition: 'all 0.2s ease'
+        },
+        modalBtnSecondary: {
+            flex: 1,
+            background: 'transparent',
+            color: '#9ca3af',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
+            padding: '12px 24px',
+            borderRadius: '10px',
+            cursor: 'pointer',
+            fontWeight: '600',
+            fontSize: '14px',
+            transition: 'all 0.2s ease'
+        },
+        infoText: {
+            color: '#9ca3af',
+            fontSize: '13px',
+            marginTop: '12px',
+            marginBottom: '8px'
         }
     };
 
@@ -506,6 +654,15 @@ export default function Dashboard() {
                     background: #ef4444 !important;
                     color: #ffffff !important;
                     transform: translateY(-1px);
+                }
+                .btn-modal-confirm:hover {
+                    background: #2563eb !important;
+                    transform: translateY(-1px);
+                    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+                }
+                .btn-modal-cancel:hover {
+                    background: rgba(255, 255, 255, 0.05) !important;
+                    border-color: rgba(255, 255, 255, 0.2) !important;
                 }
             `}</style>
 
@@ -642,7 +799,7 @@ export default function Dashboard() {
                                     </p>
                                 </div>
                                 <button
-                                    onClick={() => bookMeeting(s)}
+                                    onClick={() => openTimeSelectionModal(s)}
                                     className="btn-book"
                                     style={styles.bookBtn}
                                 >
@@ -705,8 +862,8 @@ export default function Dashboard() {
                         <h3 style={styles.successTitle}>
                             🎉 Room Provisioned Successfully
                         </h3>
-                        <a 
-                            href={meetLink} 
+                        <a
+                            href={meetLink}
                             target="_blank"
                             rel="noreferrer"
                             className="btn-meet"
@@ -714,6 +871,76 @@ export default function Dashboard() {
                         >
                             Launch Google Meet
                         </a>
+                    </div>
+                )}
+
+                {/* Time Selection Modal */}
+                {showTimeModal && selectedSlot && (
+                    <div style={styles.modalOverlay} onClick={() => setShowTimeModal(false)}>
+                        <div style={styles.modalContent} onClick={(e) => e.stopPropagation()}>
+                            <h3 style={styles.modalTitle}>
+                                ⏰ Select Meeting Time
+                            </h3>
+                            
+                            <p style={styles.infoText}>
+                                Available slot: {selectedSlot.start} — {selectedSlot.end}
+                            </p>
+                            
+                            <div>
+                                <label style={styles.modalLabel}>Start Time</label>
+                                <input
+                                    type="time"
+                                    value={customStartTime}
+                                    onChange={(e) => setCustomStartTime(e.target.value)}
+                                    min={selectedSlot.start}
+                                    max={selectedSlot.end}
+                                    style={styles.timeInput}
+                                />
+                            </div>
+                            
+                            <div>
+                                <label style={styles.modalLabel}>End Time</label>
+                                <input
+                                    type="time"
+                                    value={customEndTime}
+                                    onChange={(e) => setCustomEndTime(e.target.value)}
+                                    min={selectedSlot.start}
+                                    max={selectedSlot.end}
+                                    style={styles.timeInput}
+                                />
+                            </div>
+                            
+                            <p style={styles.infoText}>
+                                Duration: {(() => {
+                                    const start = timeToMinutes(customStartTime);
+                                    const end = timeToMinutes(customEndTime);
+                                    const duration = end - start;
+                                    if (duration <= 0) return '0 minutes';
+                                    const hours = Math.floor(duration / 60);
+                                    const mins = duration % 60;
+                                    return hours > 0
+                                        ? `${hours} hour${hours > 1 ? 's' : ''} ${mins > 0 ? `${mins} min` : ''}`
+                                        : `${mins} minutes`;
+                                })()}
+                            </p>
+                            
+                            <div style={styles.modalButtons}>
+                                <button
+                                    onClick={() => setShowTimeModal(false)}
+                                    style={styles.modalBtnSecondary}
+                                    className="btn-modal-cancel"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={bookMeeting}
+                                    style={styles.modalBtnPrimary}
+                                    className="btn-modal-confirm"
+                                >
+                                    Book Meeting
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 )}
 
