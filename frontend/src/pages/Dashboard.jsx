@@ -693,6 +693,11 @@ export default function Dashboard() {
                 .btn-meet:hover {
                     background: #059669 !important;
                     transform: translateY(-1px);
+                .btn-whatsapp:hover {
+                    background: #128C7E !important;
+                    transform: translateY(-1px);
+                    box-shadow: 0 4px 12px rgba(37, 211, 102, 0.3);
+                }
                 }
                 .btn-cancel:hover {
                     background: #ef4444 !important;
@@ -873,15 +878,47 @@ export default function Dashboard() {
                                 </div>
                                 <div style={styles.slotActions}>
                                     {slot.meeting_url && (
-                                        <a
-                                            href={slot.meeting_url}
-                                            target="_blank"
-                                            rel="noreferrer"
-                                            className="btn-meet"
-                                            style={styles.meetLink}
-                                        >
-                                            Open Meet
-                                        </a>
+                                        <>
+                                            <a
+                                                href={slot.meeting_url}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                className="btn-meet"
+                                                style={styles.meetLink}
+                                            >
+                                                Open Meet
+                                            </a>
+                                            <a
+                                                href={`https://wa.me/?text=${encodeURIComponent(
+                                                    `📅 Meeting Scheduled!\n\n` +
+                                                    `📌 Title: ${meetingTitle || slot.reason || 'Meeting'}\n` +
+                                                    `🕐 Time: ${slot.start} — ${slot.end}\n` +
+                                                    `📆 Date: ${date}\n` +
+                                                    `🔗 Join: ${slot.meeting_url}`
+                                                )}`}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                className="btn-whatsapp"
+                                                style={{
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    background: '#25D366',
+                                                    color: '#ffffff',
+                                                    textDecoration: 'none',
+                                                    fontWeight: '600',
+                                                    fontSize: '14px',
+                                                    padding: '10px 20px',
+                                                    borderRadius: '8px',
+                                                    transition: 'all 0.2s ease',
+                                                    border: 'none',
+                                                    cursor: 'pointer',
+                                                    whiteSpace: 'nowrap'
+                                                }}
+                                            >
+                                                📱 Share on WhatsApp
+                                            </a>
+                                        </>
                                     )}
                                     <button
                                         onClick={() => cancelBookedSlot(slot)}
