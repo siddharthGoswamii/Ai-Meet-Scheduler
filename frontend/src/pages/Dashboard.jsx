@@ -529,6 +529,7 @@ export default function Dashboard() {
                                 type="date"
                                 value={date}
                                 onChange={e => setDate(e.target.value)}
+                                min={new Date().toISOString().split('T')[0]}
                                 style={styles.input}
                             />
                         </div>
