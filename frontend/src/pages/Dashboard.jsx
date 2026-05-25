@@ -135,8 +135,45 @@ export default function Dashboard() {
         
         setSelectedSlot(slot);
         setCustomStartTime(slot.start);
-        setCustomEndTime(slot.end);
+        
+        // Calculate end time based on selected duration
+        const startMinutes = timeToMinutes(slot.start);
+        const endMinutes = startMinutes + parseInt(duration);
+        const endHours = Math.floor(endMinutes / 60);
+        const endMins = endMinutes % 60;
+        const calculatedEndTime = `${String(endHours).padStart(2, '0')}:${String(endMins).padStart(2, '0')}`;
+        
+        // Make sure calculated end time doesn't exceed slot end time
+        const slotEndMinutes = timeToMinutes(slot.end);
+        if (endMinutes <= slotEndMinutes) {
+            setCustomEndTime(calculatedEndTime);
+        } else {
+            setCustomEndTime(slot.end);
+        }
+        
         setShowTimeModal(true);
+    };
+
+    // Handle start time change and auto-adjust end time
+    const handleStartTimeChange = (newStartTime) => {
+        setCustomStartTime(newStartTime);
+        
+        // Auto-calculate end time based on duration
+        const startMinutes = timeToMinutes(newStartTime);
+        const endMinutes = startMinutes + parseInt(duration);
+        const endHours = Math.floor(endMinutes / 60);
+        const endMins = endMinutes % 60;
+        const calculatedEndTime = `${String(endHours).padStart(2, '0')}:${String(endMins).padStart(2, '0')}`;
+        
+        // Make sure calculated end time doesn't exceed slot end time
+        if (selectedSlot) {
+            const slotEndMinutes = timeToMinutes(selectedSlot.end);
+            if (endMinutes <= slotEndMinutes) {
+                setCustomEndTime(calculatedEndTime);
+            } else {
+                setCustomEndTime(selectedSlot.end);
+            }
+        }
     };
 
     // Helper function to convert time string (HH:MM) to minutes
@@ -162,6 +199,13 @@ export default function Dashboard() {
 
         if (customStartMinutes >= customEndMinutes) {
             alert('End time must be after start time.');
+            return;
+        }
+
+        // Validate that the selected duration matches the requested duration
+        const selectedDuration = customEndMinutes - customStartMinutes;
+        if (selectedDuration !== parseInt(duration)) {
+            alert(`Please select exactly ${duration} minutes duration. Currently selected: ${selectedDuration} minutes.`);
             return;
         }
 
@@ -886,12 +930,16 @@ export default function Dashboard() {
                                 Available slot: {selectedSlot.start} — {selectedSlot.end}
                             </p>
                             
+                            <p style={{...styles.infoText, color: '#60a5fa', fontWeight: '600'}}>
+                                Required duration: {duration} minutes ({duration >= 60 ? `${Math.floor(duration / 60)} hour${Math.floor(duration / 60) > 1 ? 's' : ''}${duration % 60 > 0 ? ` ${duration % 60} min` : ''}` : `${duration} minutes`})
+                            </p>
+                            
                             <div>
                                 <label style={styles.modalLabel}>Start Time</label>
                                 <input
                                     type="time"
                                     value={customStartTime}
-                                    onChange={(e) => setCustomStartTime(e.target.value)}
+                                    onChange={(e) => handleStartTimeChange(e.target.value)}
                                     min={selectedSlot.start}
                                     max={selectedSlot.end}
                                     style={styles.timeInput}
@@ -899,28 +947,32 @@ export default function Dashboard() {
                             </div>
                             
                             <div>
-                                <label style={styles.modalLabel}>End Time</label>
+                                <label style={styles.modalLabel}>End Time (Auto-calculated)</label>
                                 <input
                                     type="time"
                                     value={customEndTime}
-                                    onChange={(e) => setCustomEndTime(e.target.value)}
-                                    min={selectedSlot.start}
-                                    max={selectedSlot.end}
-                                    style={styles.timeInput}
+                                    readOnly
+                                    style={{...styles.timeInput, backgroundColor: '#0f172a', cursor: 'not-allowed', opacity: 0.7}}
                                 />
                             </div>
                             
                             <p style={styles.infoText}>
-                                Duration: {(() => {
+                                Selected duration: {(() => {
                                     const start = timeToMinutes(customStartTime);
                                     const end = timeToMinutes(customEndTime);
-                                    const duration = end - start;
-                                    if (duration <= 0) return '0 minutes';
-                                    const hours = Math.floor(duration / 60);
-                                    const mins = duration % 60;
-                                    return hours > 0
+                                    const calcDuration = end - start;
+                                    if (calcDuration <= 0) return '0 minutes';
+                                    const hours = Math.floor(calcDuration / 60);
+                                    const mins = calcDuration % 60;
+                                    const durationText = hours > 0
                                         ? `${hours} hour${hours > 1 ? 's' : ''} ${mins > 0 ? `${mins} min` : ''}`
                                         : `${mins} minutes`;
+                                    const isCorrect = calcDuration === parseInt(duration);
+                                    return (
+                                        <span style={{color: isCorrect ? '#10b981' : '#ef4444'}}>
+                                            {durationText} {isCorrect ? '✓' : '✗ (must match required duration)'}
+                                        </span>
+                                    );
                                 })()}
                             </p>
                             
