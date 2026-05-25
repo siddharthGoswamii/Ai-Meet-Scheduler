@@ -505,12 +505,42 @@ export default function Dashboard() {
             <div style={styles.wrapper}>
 
                 {/* Header */}
-                <div style={styles.header}>
+                {/* <div style={styles.header}>
                     <div style={styles.titleContainer}>
                         <h2 style={styles.title}>AI Meet Scheduler</h2>
                         <span style={styles.badge}>v1.0-Beta</span>
                     </div>
                     <button onClick={logout} style={styles.logoutBtn} className="btn-logout">
+                        Log Out
+                    </button>
+                </div> */}
+                <div style={styles.header}>
+                    <div style={styles.titleContainer}>
+                        
+                        {/* LEFT SIDE (Title + Quote) */}
+                        <div>
+                            <h2 style={styles.title}>AI Scheduler</h2>
+                            
+                            <p style={{
+                                margin: '4px 0 0 0',
+                                fontSize: '13px',
+                                color: '#9ca3af',
+                                fontStyle: 'italic'
+                            }}>
+                                "Smart meetings. Zero conflicts. Maximum productivity."
+                            </p>
+                        </div>
+
+                        {/* RIGHT SIDE (Badge) */}
+                        <span style={styles.badge}>v1.0-Beta</span>
+
+                    </div>
+
+                    <button 
+                        onClick={logout} 
+                        style={styles.logoutBtn} 
+                        className="btn-logout"
+                    >
                         Log Out
                     </button>
                 </div>
