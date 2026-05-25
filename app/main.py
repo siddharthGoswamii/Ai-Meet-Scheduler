@@ -48,15 +48,6 @@ app = FastAPI(
     docs_url="/docs" if settings.DEBUG else None,
     redoc_url="/redoc" if settings.DEBUG else None
 )
-#  ADD THE SESSION MIDDLEWARE HERE
-# app.add_middleware(
-#     SessionMiddleware,
-#     secret_key="a-very-secure-random-secret-key-change-this",  # Or use settings.SECRET_KEY
-#     session_cookie="teams_auth_session",
-#     same_site="lax",   # Essential to allow cookies across Microsoft's redirect back to your app
-#     https_only=False,  # Set to True in production (HTTPS), but False for local HTTP development
-# )
-# Add CORS middleware FIRST (order matters!)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins_list,
@@ -75,15 +66,6 @@ app.add_middleware(
     https_only=True,   # Required for production HTTPS
     max_age=3600,      # 1 hour session timeout
 )
-
-# # 2. ADD THE SESSION MIDDLEWARE HERE
-# app.add_middleware(
-#     SessionMiddleware,
-#     secret_key="a-very-secure-random-secret-key-change-this",  # Or use settings.SECRET_KEY
-#     session_cookie="teams_auth_session",
-#     same_site="lax",   # Essential to allow cookies across Microsoft's redirect back to your app
-#     https_only=False,  # Set to True in production (HTTPS), but False for local HTTP development
-# )
 
 # Include API router
 app.include_router(api_router)
