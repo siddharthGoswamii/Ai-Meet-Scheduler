@@ -727,7 +727,8 @@ export default function Dashboard() {
                         
                         {/* LEFT SIDE (Title + Quote) */}
                         <div>
-                            <h2 style={styles.title}>AI Scheduler</h2>
+                            <div class="feature-icon">🤖</div>
+                            <h2 style={styles.title}>AI meet Scheduler</h2>
                             
                             <p style={{
                                 margin: '4px 0 0 0',
