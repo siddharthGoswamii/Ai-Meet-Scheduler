@@ -568,6 +568,7 @@ export default function Dashboard() {
                                 onChange={e => setDate(e.target.value)}
                                 min={new Date().toISOString().split('T')[0]}
                                 style={styles.input}
+                                onKeyDown={(e) => e.preventDefault()}
                             />
                         </div>
 
