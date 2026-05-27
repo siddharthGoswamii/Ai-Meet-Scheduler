@@ -18,6 +18,17 @@ export default function Dashboard() {
     const [cancellingSlot, setCancellingSlot] = useState('');
     const [meetLink, setMeetLink]       = useState('');
     const [token, setToken]             = useState('');
+
+    const persistTokens = useCallback((accessToken, refreshToken) => {
+        if (accessToken) {
+            localStorage.setItem('access_token', accessToken);
+            setToken(accessToken);
+        }
+
+        if (refreshToken) {
+            localStorage.setItem('refresh_token', refreshToken);
+        }
+    }, []);
     
     // Time selection modal state
     const [showTimeModal, setShowTimeModal] = useState(false);
@@ -28,26 +39,72 @@ export default function Dashboard() {
     // ── Step 1: Get token from URL on load ──
     useEffect(() => {
         const urlToken = searchParams.get('token');
+        const urlRefreshToken = searchParams.get('refresh');
+
         if (urlToken) {
-            localStorage.setItem('access_token', urlToken);
-            setToken(urlToken);
+            persistTokens(urlToken, urlRefreshToken);
             navigate('/dashboard', { replace: true });
-        } else {
-            const saved = localStorage.getItem('access_token');
-            if (saved) {
-                setToken(saved);
-            } else {
-                navigate('/');
-            }
+            return;
         }
-    }, [searchParams, navigate]);
+
+        const savedAccessToken = localStorage.getItem('access_token');
+        const savedRefreshToken = localStorage.getItem('refresh_token');
+
+        if (savedAccessToken) {
+            setToken(savedAccessToken);
+            return;
+        }
+
+        if (!savedRefreshToken) {
+            navigate('/');
+        }
+    }, [searchParams, navigate, persistTokens]);
+
+    const refreshAccessToken = useCallback(async () => {
+        const storedRefreshToken = localStorage.getItem('refresh_token');
+
+        if (!storedRefreshToken) {
+            throw new Error('No refresh token available');
+        }
+
+        const res = await axios.post(
+            `${API_URL}/api/auth/refresh`,
+            null,
+            {
+                params: {
+                    refresh_token: storedRefreshToken
+                }
+            }
+        );
+
+        const newAccessToken = res?.data?.access_token;
+        if (!newAccessToken) {
+            throw new Error('No access token returned from refresh');
+        }
+
+        persistTokens(newAccessToken, storedRefreshToken);
+        return newAccessToken;
+    }, [persistTokens]);
 
     // ── Step 2: Get auth headers ──
-    const getHeaders = useCallback(() => ({
+    const getHeaders = useCallback((accessToken = token || localStorage.getItem('access_token')) => ({
         headers: {
-            Authorization: `Bearer ${localStorage.getItem('access_token')}`
+            Authorization: `Bearer ${accessToken}`
         }
-    }), []);
+    }), [token]);
+
+    const withAuthRetry = useCallback(async (requestFn) => {
+        try {
+            return await requestFn(token || localStorage.getItem('access_token'));
+        } catch (err) {
+            if (err?.response?.status !== 401) {
+                throw err;
+            }
+
+            const refreshedToken = await refreshAccessToken();
+            return await requestFn(refreshedToken);
+        }
+    }, [token, refreshAccessToken]);
 
     const formatSlotTime = (isoString) => {
         const slotDate = new Date(isoString);
@@ -62,10 +119,10 @@ export default function Dashboard() {
         if (!selectedDate) return;
 
         try {
-            const res = await axios.get(
+            const res = await withAuthRetry((accessToken) => axios.get(
                 `${API_URL}/api/meetings`,
                 {
-                    ...getHeaders(),
+                    ...getHeaders(accessToken),
                     params: {
                         start_date: `${selectedDate}T00:00:00`,
                         end_date: `${selectedDate}T23:59:59`,
@@ -73,7 +130,7 @@ export default function Dashboard() {
                         page_size: 100
                     }
                 }
-            );
+            ));
 
             const meetings = res?.data?.meetings || [];
             const scheduledMeetings = meetings.filter(
@@ -105,15 +162,15 @@ export default function Dashboard() {
         setSuggestions([]);
 
         try {
-            const res = await axios.post(
+            const res = await withAuthRetry((accessToken) => axios.post(
                 `${API_URL}/api/meetings/suggest`,
                 {
-                    participants:     emails.split(',').map(e => e.trim()),
-                    duration_mins:    parseInt(duration),
-                    preferred_date:   date  // Add the date field!
+                    participants: emails.split(',').map(e => e.trim()),
+                    duration_mins: parseInt(duration),
+                    preferred_date: date
                 },
-                getHeaders()
-            );
+                getHeaders(accessToken)
+            ));
             const nextSuggestions = res.data.suggestions || [];
             setSuggestions(nextSuggestions);
             await fetchBookedSlots(date);
@@ -216,7 +273,7 @@ export default function Dashboard() {
             const startDateTime = new Date(`${date}T${customStartTime}:00`);
             const endDateTime = new Date(`${date}T${customEndTime}:00`);
 
-            createdEvent = await axios.post(
+            createdEvent = await withAuthRetry((accessToken) => axios.post(
                 `${API_URL}/api/meetings`,
                 {
                     title: meetingTitle.trim(),
@@ -232,8 +289,8 @@ export default function Dashboard() {
                     is_online: true,
                     send_invitations: true
                 },
-                getHeaders()
-            );
+                getHeaders(accessToken)
+            ));
 
             const link = createdEvent?.data?.meeting_url || '';
             const meetingId = createdEvent?.data?.meeting_id || '';
@@ -309,16 +366,16 @@ export default function Dashboard() {
         try {
             setCancellingSlot(slot.meeting_id);
 
-            await axios.delete(
+            await withAuthRetry((accessToken) => axios.delete(
                 `${API_URL}/api/meetings/${slot.meeting_id}`,
                 {
-                    ...getHeaders(),
+                    ...getHeaders(accessToken),
                     data: {
                         cancellation_message: 'Cancelled from dashboard',
                         send_cancellation: true
                     }
                 }
-            );
+            ));
 
             setBookedSlots(prev => prev.filter(s => s.meeting_id !== slot.meeting_id));
             setSuggestions(prev => [...prev, {
@@ -359,6 +416,8 @@ export default function Dashboard() {
         const confirmed = window.confirm('Are you sure you want to log out?');
         if (confirmed) {
             localStorage.removeItem('access_token');
+            localStorage.removeItem('refresh_token');
+            setToken('');
             navigate('/');
         }
     };
