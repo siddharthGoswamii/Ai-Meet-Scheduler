@@ -424,12 +424,12 @@ curl -X POST https://ai-meet-scheduler-eimp.onrender.com/api/meetings \
 5. Add environment variables (all from `.env`)
 6. Add a **Render PostgreSQL** database → copy connection string to `DATABASE_URL`
 
-### Frontend — Vercel
+### Frontend — Render
 
 ```bash
 cd frontend
 npm run build
-# Deploy build/ folder to Vercel or Netlify
+# Deploy build/ folder to Render
 ```
 
 Or set `REACT_APP_API_URL=https://your-app.onrender.com` in Vercel environment variables.
@@ -521,7 +521,7 @@ MIT License — see [LICENSE](LICENSE) for details.
 
 ## 👥 Team
 
-Built with ❤️ during the hackathon by the **AI Meet Scheduler** team.
+Built with ❤️ during the Bobathon by the **AI Meet Scheduler** team.
 
 | Role | Contribution |
 |---|---|
