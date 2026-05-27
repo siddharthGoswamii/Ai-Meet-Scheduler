@@ -93,6 +93,51 @@ class GoogleCalendarService:
             logger.error(f"Error getting user profile: {error}")
             raise
     
+    async def get_contacts(self, max_results: int = 50) -> List[Dict[str, Any]]:
+        """
+        Get user's Google contacts
+        
+        Args:
+            max_results: Maximum number of contacts to return
+            
+        Returns:
+            List of contact dictionaries with name and email
+        """
+        try:
+            # Build People API service for contacts
+            people_service = self._build_service('people', 'v1', credentials=self.credentials)
+            
+            # Get connections (contacts)
+            results = people_service.people().connections().list(
+                resourceName='people/me',
+                pageSize=max_results,
+                personFields='names,emailAddresses'
+            ).execute()
+            
+            connections = results.get('connections', [])
+            
+            # Format contacts
+            contacts = []
+            for person in connections:
+                names = person.get('names', [])
+                emails = person.get('emailAddresses', [])
+                
+                if emails:
+                    name = names[0].get('displayName', '') if names else ''
+                    for email_data in emails:
+                        email = email_data.get('value', '')
+                        if email:
+                            contacts.append({
+                                'name': name or email.split('@')[0],
+                                'email': email
+                            })
+            
+            return contacts
+        except Exception as error:
+            logger.error(f"Error getting contacts: {error}")
+            # Return empty list instead of raising to not break the flow
+            return []
+    
     async def create_meeting(
         self,
         title: str,
