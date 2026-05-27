@@ -55,8 +55,6 @@ Analyzes every attendee's Google Calendar in real-time, surfaces conflict-free s
   </tr>
 </table>
 
-> 💡 **To add screenshots**: Create a `screenshots/` folder in the root of the repo and add `login.png`, `dashboard.png`, `time-picker.png`, and `booked.png`.
-
 ---
 
 ## ✨ What makes this different?
@@ -153,7 +151,7 @@ Analyzes every attendee's Google Calendar in real-time, surfaces conflict-free s
 |---|---|
 | Backend hosting | Render (Web Service) |
 | Database | Render PostgreSQL |
-| Frontend | Vercel / Local dev |
+| Frontend | Render / Local dev |
 | CI/CD | GitHub → Render auto-deploy |
 
 ---
@@ -426,12 +424,12 @@ curl -X POST https://ai-meet-scheduler-eimp.onrender.com/api/meetings \
 5. Add environment variables (all from `.env`)
 6. Add a **Render PostgreSQL** database → copy connection string to `DATABASE_URL`
 
-### Frontend — Vercel
+### Frontend — Render
 
 ```bash
 cd frontend
 npm run build
-# Deploy build/ folder to Vercel or Netlify
+# Deploy build/ folder to Render
 ```
 
 Or set `REACT_APP_API_URL=https://your-app.onrender.com` in Vercel environment variables.
@@ -523,7 +521,7 @@ MIT License — see [LICENSE](LICENSE) for details.
 
 ## 👥 Team
 
-Built with ❤️ during the hackathon by the **AI Meet Scheduler** team.
+Built with ❤️ during the Bobathon by the **AI Meet Scheduler** team.
 
 | Role | Contribution |
 |---|---|
