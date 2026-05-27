@@ -1,451 +1,548 @@
-# AI-Powered Meeting Scheduler - Backend API
+<div align="center">
 
-FastAPI backend for AI-powered meeting scheduling with Google Calendar and Microsoft Teams integration.
+<img src="https://img.shields.io/badge/AI%20Meet%20Scheduler-v1.0--beta-6366f1?style=for-the-badge&logo=googlecalendar&logoColor=white" alt="AI Meet Scheduler"/>
 
-## Features
+# 🤖 AI Meet Scheduler
 
-- ✅ **AI-Powered Scheduling**: Automatically finds optimal meeting times by analyzing all attendees' calendars
-- ✅ **Google Calendar Integration**: Full Google Calendar API support with free/busy analysis
-- ✅ **Microsoft OAuth 2.0 authentication**: Secure authentication flow
-- ✅ **Microsoft Graph API integration**: Teams meetings support
-- ✅ **Multi-Attendee Availability**: Checks calendar availability for all attendees simultaneously
-- ✅ **Intelligent Time Slot Ranking**: AI algorithm scores slots based on time of day, day of week, and more
-- ✅ **Automatic Meeting Creation**: Creates meetings with Google Meet links automatically
-- ✅ **RESTful API endpoints**: Comprehensive meeting management
-- ✅ **PostgreSQL database**: Async SQLAlchemy with full ORM support
-- ✅ **JWT token-based authentication**: Secure token management
-- ✅ **Encrypted token storage**: Military-grade encryption for sensitive data
-- ✅ **Comprehensive error handling**: Robust error management
-- ✅ **API documentation**: Interactive Swagger/OpenAPI docs
+### _Schedule smarter, not harder_
 
-## Tech Stack
+**AI-powered meeting scheduling that eliminates calendar back-and-forth forever.**  
+Analyzes every attendee's Google Calendar in real-time, surfaces conflict-free slots ranked by an intelligent scoring algorithm, and provisions Google Meet rooms — all in one click.
 
-- **Framework**: FastAPI 0.109.0
-- **Database**: PostgreSQL with asyncpg
-- **ORM**: SQLAlchemy 2.0 (async)
-- **Authentication**: MSAL (Microsoft Authentication Library)
-- **API Client**: httpx (async)
-- **Validation**: Pydantic v2
-- **Security**: python-jose, cryptography
+<br/>
 
-## Project Structure
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.109-009688?style=flat-square&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
+[![React](https://img.shields.io/badge/React-18-61DAFB?style=flat-square&logo=react&logoColor=black)](https://react.dev)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-336791?style=flat-square&logo=postgresql&logoColor=white)](https://postgresql.org)
+[![Google Calendar](https://img.shields.io/badge/Google%20Calendar-API-4285F4?style=flat-square&logo=googlecalendar&logoColor=white)](https://developers.google.com/calendar)
+[![Deployed on Render](https://img.shields.io/badge/Deployed%20on-Render-46E3B7?style=flat-square&logo=render&logoColor=white)](https://render.com)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)](LICENSE)
+
+<br/>
+
+[**Live Demo**](https://ai-meet-scheduler-eimp.onrender.com) · [**API Docs**](https://ai-meet-scheduler-eimp.onrender.com/docs) · [**Report a Bug**](issues) · [**Request Feature**](issues)
+
+</div>
+
+---
+
+## 📸 Screenshots
+
+<table>
+  <tr>
+    <td align="center" width="50%">
+      <strong>Login — Google OAuth 2.0</strong><br/><br/>
+      <img src="screenshots/login.png" alt="Login Screen" width="100%" style="border-radius:12px;"/>
+      <br/><sub>One-click Google authentication with OAuth 2.0</sub>
+    </td>
+    <td align="center" width="50%">
+      <strong>Dashboard — Smart Scheduling</strong><br/><br/>
+      <img src="screenshots/dashboard.png" alt="Dashboard" width="100%" style="border-radius:12px;"/>
+      <br/><sub>AI-powered slot suggestions from real calendar data</sub>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" width="50%">
+      <strong>Time Picker — Precision Booking</strong><br/><br/>
+      <img src="screenshots/time-picker.png" alt="Time Picker" width="100%" style="border-radius:12px;"/>
+      <br/><sub>Fine-tune meeting start time within the available window</sub>
+    </td>
+    <td align="center" width="50%">
+      <strong>Confirmed — Google Meet Provisioned</strong><br/><br/>
+      <img src="screenshots/booked.png" alt="Booked Slot" width="100%" style="border-radius:12px;"/>
+      <br/><sub>Instant Meet link, WhatsApp sharing, one-click cancel</sub>
+    </td>
+  </tr>
+</table>
+
+> 💡 **To add screenshots**: Create a `screenshots/` folder in the root of the repo and add `login.png`, `dashboard.png`, `time-picker.png`, and `booked.png`.
+
+---
+
+## ✨ What makes this different?
+
+| Feature | Traditional Scheduling | AI Meet Scheduler |
+|---|---|---|
+| Finding a free slot | Manual calendar checking | ✅ Automatic cross-calendar analysis |
+| Back-and-forth emails | 3–5 exchanges average | ✅ Zero — one click books it |
+| Google Meet link | Create manually | ✅ Auto-provisioned on booking |
+| Smart time ranking | None | ✅ AI scores slots by time of day, day preference |
+| Multi-attendee support | Check one by one | ✅ All calendars checked simultaneously |
+| Mobile friendly | Varies | ✅ Responsive across all devices |
+
+---
+
+## 🏗️ Architecture
 
 ```
-backend/
-├── app/
-│   ├── api/              # API endpoints
-│   │   ├── auth.py       # Authentication endpoints
-│   │   └── meetings.py   # Meeting CRUD endpoints
-│   ├── core/             # Core configuration
-│   │   └── config.py     # Settings management
-│   ├── db/               # Database configuration
-│   │   └── database.py   # DB session and engine
-│   ├── models/           # SQLAlchemy models
-│   │   ├── user.py
-│   │   ├── meeting.py
-│   │   ├── meeting_attendee.py
-│   │   └── meeting_reminder.py
-│   ├── schemas/          # Pydantic schemas
-│   │   ├── user.py
-│   │   └── meeting.py
-│   ├── services/         # Business logic
-│   │   ├── auth_service.py
-│   │   └── graph_service.py
-│   └── main.py           # Application entry point
-├── tests/                # Test files
-├── .env.example          # Environment variables template
-├── requirements.txt      # Python dependencies
-└── README.md            # This file
+┌─────────────────────────────────────────────────────────────┐
+│                        CLIENT (React)                        │
+│         Login → Dashboard → Suggest → Book → Meet           │
+└──────────────────────────┬──────────────────────────────────┘
+                           │ HTTPS REST API
+                           ▼
+┌─────────────────────────────────────────────────────────────┐
+│                    FastAPI Backend                           │
+│  ┌──────────┐  ┌──────────────┐  ┌────────────────────┐    │
+│  │   Auth   │  │   Meetings   │  │    AI Scheduler     │    │
+│  │  /api/   │  │   /api/      │  │   /calendar/        │    │
+│  │  auth/   │  │  meetings/   │  │   suggest           │    │
+│  └──────────┘  └──────────────┘  └────────────────────┘    │
+└────────┬──────────────┬───────────────────┬─────────────────┘
+         │              │                   │
+         ▼              ▼                   ▼
+   ┌──────────┐  ┌──────────────┐  ┌──────────────────┐
+   │PostgreSQL│  │  Google      │  │   Google Meet    │
+   │   (RDS)  │  │  Calendar    │  │      API         │
+   │          │  │  API v3      │  │                  │
+   └──────────┘  └──────────────┘  └──────────────────┘
 ```
 
-## Prerequisites
+---
 
-- Python 3.10 or higher
-- PostgreSQL 14 or higher
-- Microsoft Azure AD application (for OAuth)
-- Microsoft 365 account with Teams
+## 🚀 Features
 
-## Setup Instructions
+### Core
+- **🔐 Google OAuth 2.0** — Secure sign-in, no passwords stored
+- **📅 Real Calendar Analysis** — Live free/busy lookup across all attendees' Google Calendars
+- **🤖 AI Slot Ranking** — Intelligent scoring based on time of day, day of week, back-to-back avoidance
+- **📹 Auto Google Meet** — Every booking instantly creates a Meet link
+- **📧 Email Invites** — Attendees receive calendar invitations automatically
+- **❌ One-Click Cancel** — Cancel with automatic Google Calendar cleanup
 
-### 1. Clone and Navigate
+### Smart Scheduling
+- Checks availability for all attendees **simultaneously**
+- Avoids scheduling on **Monday mornings** and **Friday afternoons** by default
+- Ranks **Tuesday–Thursday** mid-morning slots highest
+- Auto-calculates **end time** based on selected duration
+- Falls back to **business-hours defaults** (09:00–18:00) if calendar fetch fails
+
+### Security
+- **JWT authentication** with configurable expiry
+- **Fernet encryption** for all stored Google tokens
+- **PKCE OAuth flow** — protection against CSRF attacks
+- Tokens never exposed in logs or responses
+
+---
+
+## 🛠️ Tech Stack
+
+### Backend
+| Layer | Technology |
+|---|---|
+| Framework | FastAPI 0.109 + Uvicorn |
+| Database | PostgreSQL 15 + asyncpg |
+| ORM | SQLAlchemy 2.0 (async) |
+| Auth | Google OAuth 2.0 + JWT (python-jose) |
+| Calendar | Google Calendar API v3 |
+| HTTP Client | httpx (async) |
+| Encryption | cryptography (Fernet) |
+| Validation | Pydantic v2 |
+
+### Frontend
+| Layer | Technology |
+|---|---|
+| Framework | React 18 |
+| Routing | React Router v6 |
+| HTTP | Axios |
+| Styling | Inline styles (zero dependencies) |
+| Auth Flow | Cookie-based PKCE state management |
+
+### Infrastructure
+| Layer | Technology |
+|---|---|
+| Backend hosting | Render (Web Service) |
+| Database | Render PostgreSQL |
+| Frontend | Vercel / Local dev |
+| CI/CD | GitHub → Render auto-deploy |
+
+---
+
+## 📁 Project Structure
+
+```
+ai-meet-scheduler/
+│
+├── backend/
+│   ├── app/
+│   │   ├── api/
+│   │   │   ├── auth.py           # Google OAuth endpoints
+│   │   │   ├── meetings.py       # Meeting CRUD + AI suggest
+│   │   │   └── calendar.py       # Free/busy + Meet creation
+│   │   ├── core/
+│   │   │   └── config.py         # Pydantic settings
+│   │   ├── db/
+│   │   │   └── database.py       # Async SQLAlchemy engine
+│   │   ├── models/
+│   │   │   ├── user.py
+│   │   │   ├── meeting.py
+│   │   │   ├── meeting_attendee.py
+│   │   │   └── meeting_reminder.py
+│   │   ├── schemas/
+│   │   │   ├── user.py
+│   │   │   └── meeting.py
+│   │   ├── services/
+│   │   │   ├── auth_service.py       # JWT + Fernet + PKCE
+│   │   │   ├── google_calendar_service.py  # Calendar API client
+│   │   │   └── ai_scheduler.py       # Slot ranking algorithm
+│   │   └── main.py
+│   ├── requirements.txt
+│   └── .env.example
+│
+├── frontend/
+│   ├── src/
+│   │   ├── pages/
+│   │   │   ├── Login.jsx         # Google sign-in UI
+│   │   │   └── Dashboard.jsx     # Scheduling interface
+│   │   ├── App.js
+│   │   └── index.js
+│   └── package.json
+│
+└── README.md
+```
+
+---
+
+## ⚡ Quick Start
+
+### Prerequisites
+- Python 3.10+
+- Node.js 18+
+- PostgreSQL 14+
+- Google Cloud project with Calendar API enabled
+
+### 1. Clone
+
+```bash
+git clone https://github.com/siddharthGoswamii/Ai-Meet-Scheduler.git
+cd Ai-Meet-Scheduler
+```
+
+### 2. Backend Setup
 
 ```bash
 cd backend
-```
 
-### 2. Create Virtual Environment
-
-```bash
-# Windows
+# Create virtual environment
 python -m venv venv
-venv\Scripts\activate
+venv\Scripts\activate          # Windows
+source venv/bin/activate       # Mac/Linux
 
-# Linux/Mac
-python3 -m venv venv
-source venv/bin/activate
-```
-
-### 3. Install Dependencies
-
-```bash
+# Install dependencies
 pip install -r requirements.txt
-```
 
-### 4. Set Up PostgreSQL Database
-
-```bash
-# Create database
-createdb teams_scheduler
-
-# Or using psql
-psql -U postgres
-CREATE DATABASE teams_scheduler;
-\q
-```
-
-### 5. Configure Environment Variables
-
-Copy `.env.example` to `.env` and update values:
-
-```bash
+# Configure environment
 cp .env.example .env
+# Edit .env with your values (see Environment Variables below)
+
+# Run
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-Edit `.env` with your configuration:
+### 3. Frontend Setup
+
+```bash
+cd frontend
+npm install
+npm start
+# Opens at http://localhost:3000
+```
+
+---
+
+## 🔑 Environment Variables
+
+Create `backend/.env`:
 
 ```env
-# Application
-APP_NAME=Teams Meeting Scheduler
+# ── Application ──────────────────────────────────────
+APP_NAME=AI Meeting Scheduler
+APP_VERSION=1.0.0
 DEBUG=True
 ENVIRONMENT=development
 
-# Database
-DATABASE_URL=postgresql+asyncpg://username:password@localhost:5432/teams_scheduler
+# ── Server ───────────────────────────────────────────
+HOST=0.0.0.0
+PORT=8000
 
-# Microsoft Azure AD (Get from Azure Portal)
-AZURE_CLIENT_ID=your_client_id
-AZURE_CLIENT_SECRET=your_client_secret
-AZURE_TENANT_ID=your_tenant_id
-AZURE_REDIRECT_URI=http://localhost:8000/api/auth/callback
+# ── Database ─────────────────────────────────────────
+DATABASE_URL=postgresql+asyncpg://postgres:password@localhost:5432/gmeet_scheduler
+DATABASE_ECHO=False
 
-# JWT Secret (Generate a secure random string)
-SECRET_KEY=your_secret_key_here
+# ── Google OAuth 2.0 ─────────────────────────────────
+# Get from console.cloud.google.com → APIs & Services → Credentials
+GOOGLE_CLIENT_ID=your_client_id.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=GOCSPX-your_secret
+GOOGLE_REDIRECT_URI=http://localhost:8000/api/auth/callback
 
-# Encryption Key (Generate using: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())")
-ENCRYPTION_KEY=your_32_byte_encryption_key
+# ── JWT ──────────────────────────────────────────────
+SECRET_KEY=your_32+_character_secret_key_here
+ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=60
+REFRESH_TOKEN_EXPIRE_DAYS=7
 
-# CORS
+# ── Encryption (generate with command below) ─────────
+ENCRYPTION_KEY=your_fernet_key_here
+
+# ── CORS ─────────────────────────────────────────────
 CORS_ORIGINS=http://localhost:3000,http://localhost:5173
+CORS_ALLOW_CREDENTIALS=True
 ```
 
-### 6. Generate Encryption Key
-
+**Generate encryption key:**
 ```bash
 python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 ```
 
-Copy the output to `ENCRYPTION_KEY` in `.env`
+---
 
-### 7. Register Azure AD Application
+## 🌐 Google Cloud Setup
 
-1. Go to [Azure Portal](https://portal.azure.com)
-2. Navigate to **Azure Active Directory** > **App registrations**
-3. Click **New registration**
-4. Configure:
-   - Name: `Teams Meeting Scheduler`
-   - Supported account types: `Accounts in this organizational directory only`
-   - Redirect URI: `Web` - `http://localhost:8000/api/auth/callback`
-5. Click **Register**
-6. Copy **Application (client) ID** → `AZURE_CLIENT_ID`
-7. Copy **Directory (tenant) ID** → `AZURE_TENANT_ID`
-8. Go to **Certificates & secrets** > **New client secret**
-9. Copy the secret value → `AZURE_CLIENT_SECRET`
-10. Go to **API permissions**:
-    - Add **Microsoft Graph** permissions:
-      - `User.Read` (Delegated)
-      - `Calendars.ReadWrite` (Delegated)
-      - `OnlineMeetings.ReadWrite` (Delegated)
-    - Click **Grant admin consent**
+1. Go to [console.cloud.google.com](https://console.cloud.google.com)
+2. **Create project** → Enable **Google Calendar API**
+3. **APIs & Services → Credentials → Create OAuth 2.0 Client ID**
+4. Application type: **Web application**
+5. Add Authorized redirect URIs:
+   ```
+   http://localhost:8000/api/auth/callback
+   https://your-app.onrender.com/api/auth/callback
+   ```
+6. Copy **Client ID** and **Client Secret** → paste into `.env`
+7. **OAuth consent screen** → Add scopes:
+   - `https://www.googleapis.com/auth/calendar`
+   - `https://www.googleapis.com/auth/calendar.events`
+   - `https://www.googleapis.com/auth/userinfo.email`
+   - `https://www.googleapis.com/auth/userinfo.profile`
 
-### 8. Run Database Migrations
+---
 
-The application will automatically create tables on startup. Alternatively, use Alembic:
-
-```bash
-# Initialize Alembic (first time only)
-alembic init alembic
-
-# Create migration
-alembic revision --autogenerate -m "Initial migration"
-
-# Apply migration
-alembic upgrade head
-```
-
-### 9. Run the Application
-
-```bash
-# Development mode with auto-reload
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-
-# Or using Python
-python -m app.main
-```
-
-The API will be available at:
-- API: http://localhost:8000
-- Swagger Docs: http://localhost:8000/docs
-- ReDoc: http://localhost:8000/redoc
-
-## API Endpoints
+## 📡 API Reference
 
 ### Authentication
 
-- `GET /api/auth/login` - Get Microsoft OAuth login URL
-- `GET /api/auth/callback` - OAuth callback handler
-- `POST /api/auth/refresh` - Refresh access token
-- `POST /api/auth/logout` - Logout user
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/api/auth/login` | Get Google OAuth authorization URL |
+| `GET` | `/api/auth/callback` | Handle OAuth callback, issue JWT |
+| `POST` | `/api/auth/refresh` | Refresh access token |
+| `POST` | `/api/auth/logout` | Invalidate session |
 
 ### Meetings
 
-- `POST /api/meetings` - Create new meeting
-- `GET /api/meetings` - List meetings (with filters and pagination)
-- `GET /api/meetings/{meeting_id}` - Get meeting details
-- `PATCH /api/meetings/{meeting_id}` - Update meeting
-- `DELETE /api/meetings/{meeting_id}` - Cancel meeting
+| Method | Endpoint | Description |
+|---|---|---|
+| `POST` | `/api/meetings` | Create meeting + Google Meet link |
+| `GET` | `/api/meetings` | List meetings (paginated, filterable) |
+| `GET` | `/api/meetings/{id}` | Get meeting details |
+| `PATCH` | `/api/meetings/{id}` | Update meeting |
+| `DELETE` | `/api/meetings/{id}` | Cancel meeting |
 
-### 🤖 AI-Powered Scheduling (NEW!)
+### AI Scheduling
 
-- `POST /calendar/find-free-slots` - Find time slots when all attendees are free
-- `POST /calendar/auto-schedule` - Automatically schedule meeting at best time
-- `GET /calendar/attendee-availability` - Get detailed availability for attendees
+| Method | Endpoint | Description |
+|---|---|---|
+| `POST` | `/api/meetings/suggest` | Get AI-ranked free slots for all attendees |
+| `POST` | `/calendar/auto-schedule` | Auto-book at optimal time |
+| `GET` | `/calendar/busy-slots` | Get user's busy time slots |
+| `POST` | `/calendar/find-free-slots` | Find slots across multiple attendees |
 
-### Google Calendar
+### Health
 
-- `GET /calendar/busy-slots` - Get user's busy time slots
-- `POST /calendar/create-meeting` - Create meeting with Google Meet link
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/` | Root — returns app status |
+| `GET` | `/health` | Health check |
 
-### Health Check
+---
 
-- `GET /` - Root endpoint
-- `GET /health` - Health check
-
-## 🚀 AI Scheduling Quick Start
-
-The AI-powered scheduling feature automatically finds the best meeting times by:
-1. Checking all attendees' Google Calendars
-2. Finding common free time slots
-3. Ranking slots using AI algorithms
-4. Automatically creating the meeting
-
-**Example: Auto-schedule a meeting**
+### Example: Get AI Slot Suggestions
 
 ```bash
-curl -X POST http://localhost:8000/calendar/auto-schedule \
-  -H "Authorization: Bearer YOUR_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "title": "Team Sync",
-    "attendee_emails": ["user1@example.com", "user2@example.com"],
-    "duration_minutes": 60,
-    "start_date": "2026-05-20T00:00:00Z",
-    "end_date": "2026-05-27T23:59:59Z",
-    "timezone": "Asia/Kolkata",
-    "is_online": true
-  }'
-```
-
-**Response includes:**
-- Selected time slot with confidence score
-- Google Meet link
-- Alternative time slots
-- Calendar invitation sent to all attendees
-
-📖 **For detailed AI scheduling documentation, see [AI_SCHEDULING_GUIDE.md](AI_SCHEDULING_GUIDE.md)**
-
-## API Usage Examples
-
-### 1. Login Flow
-
-```bash
-# Step 1: Get authorization URL
-curl http://localhost:8000/api/auth/login
-
-# Step 2: User visits the URL and authorizes
-# Step 3: User is redirected to callback with code
-# Step 4: Exchange code for tokens (automatic)
-```
-
-### 2. Create Meeting
-
-```bash
-curl -X POST http://localhost:8000/api/meetings \
+curl -X POST https://ai-meet-scheduler-eimp.onrender.com/api/meetings/suggest \
   -H "Authorization: Bearer YOUR_JWT_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
-    "title": "Team Standup",
-    "description": "Daily standup meeting",
-    "start_time": "2024-05-15T10:00:00Z",
-    "end_time": "2024-05-15T10:30:00Z",
-    "timezone": "UTC",
+    "participants": ["alice@gmail.com", "bob@company.com"],
+    "duration_mins": 60,
+    "preferred_date": "2026-05-27"
+  }'
+```
+
+**Response:**
+```json
+{
+  "date": "2026-05-27",
+  "suggestions": [
+    {
+      "start": "10:00",
+      "end": "11:00",
+      "reason": "Mid-morning — all attendees available, peak productivity window"
+    },
+    {
+      "start": "14:00",
+      "end": "15:00",
+      "reason": "Post-lunch — no conflicts detected across calendars"
+    },
+    {
+      "start": "15:30",
+      "end": "16:30",
+      "reason": "Afternoon slot — good energy, avoids end-of-day fatigue"
+    }
+  ],
+  "total_found": 4
+}
+```
+
+### Example: Book a Meeting
+
+```bash
+curl -X POST https://ai-meet-scheduler-eimp.onrender.com/api/meetings \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "Product Sync",
+    "description": "Weekly product team standup",
+    "start_time": "2026-05-27T10:00:00Z",
+    "end_time": "2026-05-27T11:00:00Z",
+    "timezone": "Asia/Kolkata",
     "attendees": [
-      {
-        "email": "user@example.com",
-        "display_name": "John Doe",
-        "is_required": true
-      }
+      { "email": "alice@gmail.com", "display_name": "Alice", "is_required": true },
+      { "email": "bob@company.com", "display_name": "Bob",   "is_required": true }
     ],
     "is_online": true
   }'
 ```
 
-### 3. List Meetings
+---
+
+## 🚢 Deployment
+
+### Backend — Render
+
+1. Push to GitHub
+2. **render.com → New Web Service → Connect repo**
+3. Build command: `pip install -r requirements.txt`
+4. Start command: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
+5. Add environment variables (all from `.env`)
+6. Add a **Render PostgreSQL** database → copy connection string to `DATABASE_URL`
+
+### Frontend — Vercel
 
 ```bash
-curl -X GET "http://localhost:8000/api/meetings?page=1&page_size=20" \
-  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+cd frontend
+npm run build
+# Deploy build/ folder to Vercel or Netlify
 ```
 
-### 4. Cancel Meeting
+Or set `REACT_APP_API_URL=https://your-app.onrender.com` in Vercel environment variables.
+
+### Docker
+
+```dockerfile
+FROM python:3.11-slim
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+COPY . .
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+```
 
 ```bash
-curl -X DELETE http://localhost:8000/api/meetings/{meeting_id} \
-  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "cancellation_message": "Meeting cancelled due to conflict",
-    "send_cancellation": true
-  }'
+docker build -t ai-meet-scheduler .
+docker run -p 8000:8000 --env-file .env ai-meet-scheduler
 ```
 
-## Testing
+---
+
+## 🧪 Testing
 
 ```bash
 # Run all tests
 pytest
 
-# Run with coverage
+# With coverage report
 pytest --cov=app --cov-report=html
 
-# Run specific test file
-pytest tests/test_meetings.py
+# Specific module
+pytest tests/test_meetings.py -v
 ```
 
-## Deployment
+---
 
-### Production Checklist
+## 🔒 Security
 
-1. ✅ Set `DEBUG=False` in `.env`
-2. ✅ Use strong `SECRET_KEY` and `ENCRYPTION_KEY`
-3. ✅ Configure production database
-4. ✅ Set up HTTPS/SSL
-5. ✅ Update `AZURE_REDIRECT_URI` to production URL
-6. ✅ Configure CORS for production frontend
-7. ✅ Set up logging and monitoring
-8. ✅ Use environment-specific configurations
-9. ✅ Enable database connection pooling
-10. ✅ Set up backup strategy
+- **PKCE OAuth flow** — state + code_verifier stored in httpOnly cookies
+- **Fernet symmetric encryption** — all Google tokens AES-128-CBC encrypted at rest
+- **JWT expiry** — short-lived access tokens (60 min), refresh tokens (7 days)
+- **CORS whitelist** — explicit origins only, credentials require explicit opt-in
+- **Pydantic validation** — all inputs validated at schema level before processing
+- **No secrets in code** — all secrets via environment variables
 
-### Docker Deployment
+---
 
-```dockerfile
-# Dockerfile
-FROM python:3.11-slim
+## 🗺️ Roadmap
 
-WORKDIR /app
+- [ ] **Recurring meetings** — weekly / bi-weekly scheduling
+- [ ] **Slack / Teams notifications** — meeting reminders via chat
+- [ ] **Smart rescheduling** — AI suggests reschedule when conflicts arise
+- [ ] **Analytics dashboard** — meeting load, busiest hours, attendee patterns
+- [ ] **Multi-timezone support** — automatically convert slots per attendee timezone
+- [ ] **Microsoft Outlook integration** — support non-Google calendars
+- [ ] **Mobile app** — React Native companion app
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+---
 
-COPY . .
+## 🤝 Contributing
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
-```
+Contributions are welcome!
 
 ```bash
-# Build and run
-docker build -t teams-scheduler-api .
-docker run -p 8000:8000 --env-file .env teams-scheduler-api
+# Fork the repo and clone
+git clone https://github.com/YOUR_USERNAME/Ai-Meet-Scheduler.git
+
+# Create feature branch
+git checkout -b feature/your-feature-name
+
+# Make changes, then
+git add .
+git commit -m "feat: describe your change"
+git push origin feature/your-feature-name
+
+# Open a Pull Request on GitHub
 ```
 
-### Using Gunicorn (Production)
+Please follow conventional commit format: `feat:`, `fix:`, `docs:`, `refactor:`
 
-```bash
-# Install gunicorn
-pip install gunicorn
+---
 
-# Run with gunicorn
-gunicorn app.main:app -w 4 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000
-```
+## 📄 License
 
-## Environment Variables Reference
+MIT License — see [LICENSE](LICENSE) for details.
 
-| Variable | Description | Required | Default |
-|----------|-------------|----------|---------|
-| `APP_NAME` | Application name | No | Teams Meeting Scheduler |
-| `DEBUG` | Debug mode | No | False |
-| `DATABASE_URL` | PostgreSQL connection string | Yes | - |
-| `AZURE_CLIENT_ID` | Azure AD client ID | Yes | - |
-| `AZURE_CLIENT_SECRET` | Azure AD client secret | Yes | - |
-| `AZURE_TENANT_ID` | Azure AD tenant ID | Yes | - |
-| `AZURE_REDIRECT_URI` | OAuth redirect URI | Yes | - |
-| `SECRET_KEY` | JWT secret key | Yes | - |
-| `ENCRYPTION_KEY` | Token encryption key | Yes | - |
-| `CORS_ORIGINS` | Allowed CORS origins | No | http://localhost:3000 |
-| `LOG_LEVEL` | Logging level | No | INFO |
+---
 
-## Troubleshooting
+## 👥 Team
 
-### Database Connection Issues
+Built with ❤️ during the hackathon by the **AI Meet Scheduler** team.
 
-```bash
-# Check PostgreSQL is running
-pg_isready
+| Role | Contribution |
+|---|---|
+| Backend | FastAPI, Google OAuth, Calendar API, PostgreSQL |
+| Data Engineering | ETL pipeline, pricing database, cost calculation engine |
+| DevOps | Render deployment, CI/CD, Docker, environment management |
 
-# Test connection
-psql -U username -d teams_scheduler
-```
+---
 
-### Azure AD Authentication Issues
+<div align="center">
 
-1. Verify redirect URI matches exactly in Azure Portal
-2. Check API permissions are granted
-3. Ensure client secret hasn't expired
-4. Verify tenant ID is correct
+**⭐ If this project helped you, consider giving it a star!**
 
-### Token Encryption Issues
+<br/>
 
-```bash
-# Regenerate encryption key
-python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
-```
+[![GitHub stars](https://img.shields.io/github/stars/siddharthGoswamii/Ai-Meet-Scheduler?style=social)](https://github.com/siddharthGoswamii/Ai-Meet-Scheduler)
 
-## Security Best Practices
+<br/>
 
-1. **Never commit `.env` file** - Add to `.gitignore`
-2. **Rotate secrets regularly** - Update client secrets and keys
-3. **Use HTTPS in production** - Encrypt data in transit
-4. **Implement rate limiting** - Prevent abuse
-5. **Enable audit logging** - Track all operations
-6. **Validate all inputs** - Use Pydantic schemas
-7. **Keep dependencies updated** - Regular security patches
+_Made with FastAPI + React + Google Calendar API_
 
-## Contributing
-
-1. Create feature branch
-2. Make changes
-3. Write tests
-4. Run linting: `flake8 app/`
-5. Run tests: `pytest`
-6. Submit pull request
-
-## License
-
-MIT License - See LICENSE file for details
-
-## Support
-
-For issues and questions:
-- GitHub Issues: [Create an issue]
-- Documentation: [API Docs](http://localhost:8000/docs)
-- Email: support@example.com
+</div>
