@@ -151,7 +151,7 @@ Analyzes every attendee's Google Calendar in real-time, surfaces conflict-free s
 |---|---|
 | Backend hosting | Render (Web Service) |
 | Database | Render PostgreSQL |
-| Frontend | Vercel / Local dev |
+| Frontend | Render / Local dev |
 | CI/CD | GitHub → Render auto-deploy |
 
 ---
