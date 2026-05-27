@@ -123,6 +123,8 @@ async def auth_callback(
                 last_login=cast(Any, datetime.utcnow())
             )
             db.add(user)
+            # Flush to assign user_id before commit
+            await db.flush()
         else:
             user.access_token = cast(Any, auth_service.encrypt_token(access_token))
             user.refresh_token = cast(Any, auth_service.encrypt_token(refresh_token) if refresh_token else None)
@@ -130,7 +132,9 @@ async def auth_callback(
             user.last_login = cast(Any, datetime.utcnow())
             user.display_name = cast(Any, display_name)
         
+        # Commit the transaction to ensure user is persisted
         await db.commit()
+        # Refresh to get the latest state from database
         await db.refresh(user)
         
         # Create internal JWT tokens
