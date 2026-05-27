@@ -55,8 +55,6 @@ Analyzes every attendee's Google Calendar in real-time, surfaces conflict-free s
   </tr>
 </table>
 
-> 💡 **To add screenshots**: Create a `screenshots/` folder in the root of the repo and add `login.png`, `dashboard.png`, `time-picker.png`, and `booked.png`.
-
 ---
 
 ## ✨ What makes this different?
