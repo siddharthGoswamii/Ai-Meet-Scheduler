@@ -32,7 +32,7 @@ class Settings(BaseSettings):
     
     # Google Calendar API
     GOOGLE_API_SCOPES: str = Field(
-        default="https://www.googleapis.com/auth/calendar,https://www.googleapis.com/auth/calendar.events,https://www.googleapis.com/auth/userinfo.email,https://www.googleapis.com/auth/userinfo.profile"
+        default="https://www.googleapis.com/auth/calendar,https://www.googleapis.com/auth/calendar.events,https://www.googleapis.com/auth/userinfo.email,https://www.googleapis.com/auth/userinfo.profile,https://www.googleapis.com/auth/contacts.readonly"
     )
     
     # Microsoft Graph API Configuration

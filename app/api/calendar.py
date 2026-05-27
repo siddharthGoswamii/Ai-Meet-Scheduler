@@ -120,6 +120,38 @@ async def get_busy_slots(
             detail=f"Failed to fetch busy slots: {str(e)}"
         )
 
+@router.get("/contacts")
+async def get_contacts(
+    user: User = Depends(get_current_user)
+):
+    """
+    Get user's Google contacts
+    
+    Args:
+        user: Current authenticated user
+    
+    Returns:
+        List of contacts with name and email
+    """
+    try:
+        # Decrypt tokens
+        access_token = auth_service.decrypt_token(user.access_token)  # type: ignore
+        refresh_token = auth_service.decrypt_token(user.refresh_token) if user.refresh_token else None  # type: ignore
+        
+        # Create Google Calendar service
+        google_service = GoogleCalendarService(access_token, refresh_token)
+        
+        # Get contacts
+        contacts = await google_service.get_contacts(max_results=100)
+        
+        return {"contacts": contacts, "total": len(contacts)}
+        
+    except Exception as e:
+        logger.error(f"Error fetching contacts: {str(e)}")
+        # Return empty list instead of error to not break the UI
+        return {"contacts": [], "total": 0}
+
+
 
 # Create a meeting with Google Meet link
 @router.post("/create-meeting")
