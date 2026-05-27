@@ -11,6 +11,11 @@ export default function Dashboard() {
     const [date, setDate]               = useState('');
     const [duration, setDuration]       = useState(60);
     const [emails, setEmails]           = useState('');
+    const [emailTags, setEmailTags]     = useState([]);
+    const [emailInput, setEmailInput]   = useState('');
+    const [contacts, setContacts]       = useState([]);
+    const [filteredContacts, setFilteredContacts] = useState([]);
+    const [showContactDropdown, setShowContactDropdown] = useState(false);
     const [meetingTitle, setMeetingTitle] = useState('');
     const [suggestions, setSuggestions] = useState([]);
     const [bookedSlots, setBookedSlots] = useState([]);
@@ -60,6 +65,72 @@ export default function Dashboard() {
         }
     }, [searchParams, navigate, persistTokens]);
 
+    // ── Email Tag Management ──
+    const validateEmail = (email) => {
+        const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        return re.test(email);
+    };
+
+    const addEmailTag = (email) => {
+        const trimmedEmail = email.trim().toLowerCase();
+        
+        if (!trimmedEmail) return;
+        
+        if (!validateEmail(trimmedEmail)) {
+            alert('Please enter a valid email address');
+            return;
+        }
+        
+        if (emailTags.includes(trimmedEmail)) {
+            alert('This email is already added');
+            return;
+        }
+        
+        setEmailTags([...emailTags, trimmedEmail]);
+        setEmailInput('');
+        setShowContactDropdown(false);
+        
+        // Update the old emails state for backward compatibility
+        setEmails([...emailTags, trimmedEmail].join(','));
+    };
+
+    const removeEmailTag = (emailToRemove) => {
+        const newTags = emailTags.filter(email => email !== emailToRemove);
+        setEmailTags(newTags);
+        setEmails(newTags.join(','));
+    };
+
+    const handleEmailInputChange = (value) => {
+        setEmailInput(value);
+        
+        // Filter contacts based on input
+        if (value.trim()) {
+            const filtered = contacts.filter(contact => 
+                contact.email.toLowerCase().includes(value.toLowerCase()) ||
+                contact.name.toLowerCase().includes(value.toLowerCase())
+            );
+            setFilteredContacts(filtered);
+            setShowContactDropdown(filtered.length > 0);
+        } else {
+            setFilteredContacts([]);
+            setShowContactDropdown(false);
+        }
+    };
+
+    const handleEmailInputKeyDown = (e) => {
+        if (e.key === 'Enter' || e.key === ',') {
+            e.preventDefault();
+            addEmailTag(emailInput);
+        } else if (e.key === 'Backspace' && !emailInput && emailTags.length > 0) {
+            // Remove last tag on backspace if input is empty
+            removeEmailTag(emailTags[emailTags.length - 1]);
+        }
+    };
+
+    const selectContact = (contact) => {
+        addEmailTag(contact.email);
+    };
+
     const refreshAccessToken = useCallback(async () => {
         const storedRefreshToken = localStorage.getItem('refresh_token');
 
@@ -105,6 +176,30 @@ export default function Dashboard() {
             return await requestFn(refreshedToken);
         }
     }, [token, refreshAccessToken]);
+
+    // ── Step 1.5: Fetch Google Contacts on load ──
+    useEffect(() => {
+        const fetchContacts = async () => {
+            if (!token) return;
+            
+            try {
+                const res = await withAuthRetry((accessToken) => axios.get(
+                    `${API_URL}/api/calendar/contacts`,
+                    getHeaders(accessToken)
+                ));
+                
+                if (res.data && res.data.contacts) {
+                    setContacts(res.data.contacts);
+                }
+            } catch (err) {
+                console.error('Failed to fetch contacts:', err);
+            }
+        };
+        
+        if (token) {
+            fetchContacts();
+        }
+    }, [token, getHeaders, withAuthRetry]);
 
     const formatSlotTime = (isoString) => {
         const slotDate = new Date(isoString);
@@ -752,11 +847,11 @@ export default function Dashboard() {
                 .btn-meet:hover {
                     background: #059669 !important;
                     transform: translateY(-1px);
+                }
                 .btn-whatsapp:hover {
                     background: #128C7E !important;
                     transform: translateY(-1px);
                     box-shadow: 0 4px 12px rgba(37, 211, 102, 0.3);
-                }
                 }
                 .btn-cancel:hover {
                     background: #ef4444 !important;
@@ -791,7 +886,7 @@ export default function Dashboard() {
                         
                         {/* LEFT SIDE (Title + Quote) */}
                         <div>
-                            <div class="feature-icon">🤖</div>
+                            <div className="feature-icon">🤖</div>
                             <h2 style={styles.title}>AI meet Scheduler</h2>
                             
                             <p style={{
@@ -864,15 +959,149 @@ export default function Dashboard() {
                         />
                     </div>
 
-                    {/* Emails inputs */}
-                    <div style={{ ...styles.fieldGroup, marginBottom: '28px' }}>
-                        <label style={styles.label}>Required Attendees</label>
-                        <input
-                            placeholder="e.g. dev@hack.com, designer@hack.com"
-                            value={emails}
-                            onChange={e => setEmails(e.target.value)}
-                            style={styles.input}
-                        />
+                    {/* Email Tags Input */}
+                    <div style={{ ...styles.fieldGroup, marginBottom: '28px', position: 'relative' }}>
+                        <label style={styles.label}>
+                            Required Attendees {emailTags.length > 0 && `(${emailTags.length})`}
+                        </label>
+                        
+                        {/* Tags Container */}
+                        <div style={{
+                            minHeight: '48px',
+                            padding: '8px',
+                            borderRadius: '10px',
+                            background: '#1f2937',
+                            border: '1px solid rgba(255, 255, 255, 0.1)',
+                            display: 'flex',
+                            flexWrap: 'wrap',
+                            gap: '8px',
+                            alignItems: 'center',
+                            cursor: 'text'
+                        }}
+                        onClick={() => document.getElementById('email-input').focus()}
+                        >
+                            {/* Email Tags */}
+                            {emailTags.map((email, index) => (
+                                <div key={index} style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '6px',
+                                    background: 'rgba(59, 130, 246, 0.15)',
+                                    border: '1px solid rgba(59, 130, 246, 0.3)',
+                                    borderRadius: '6px',
+                                    padding: '4px 8px',
+                                    fontSize: '13px',
+                                    color: '#60a5fa'
+                                }}>
+                                    <span>{email}</span>
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            removeEmailTag(email);
+                                        }}
+                                        style={{
+                                            background: 'none',
+                                            border: 'none',
+                                            color: '#60a5fa',
+                                            cursor: 'pointer',
+                                            padding: '0',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            fontSize: '16px',
+                                            lineHeight: '1'
+                                        }}
+                                    >
+                                        ×
+                                    </button>
+                                </div>
+                            ))}
+                            
+                            {/* Input Field */}
+                            <input
+                                id="email-input"
+                                type="text"
+                                placeholder={emailTags.length === 0 ? "Type email or select from contacts..." : ""}
+                                value={emailInput}
+                                onChange={(e) => handleEmailInputChange(e.target.value)}
+                                onKeyDown={handleEmailInputKeyDown}
+                                onFocus={() => {
+                                    if (contacts.length > 0 && !emailInput) {
+                                        setFilteredContacts(contacts.slice(0, 10));
+                                        setShowContactDropdown(true);
+                                    }
+                                }}
+                                onBlur={() => {
+                                    // Delay to allow click on dropdown
+                                    setTimeout(() => setShowContactDropdown(false), 200);
+                                }}
+                                style={{
+                                    flex: 1,
+                                    minWidth: '200px',
+                                    background: 'transparent',
+                                    border: 'none',
+                                    outline: 'none',
+                                    color: '#ffffff',
+                                    fontSize: '14px',
+                                    padding: '4px'
+                                }}
+                            />
+                        </div>
+                        
+                        {/* Contacts Dropdown */}
+                        {showContactDropdown && filteredContacts.length > 0 && (
+                            <div style={{
+                                position: 'absolute',
+                                top: '100%',
+                                left: 0,
+                                right: 0,
+                                marginTop: '4px',
+                                background: '#1f2937',
+                                border: '1px solid rgba(255, 255, 255, 0.1)',
+                                borderRadius: '10px',
+                                maxHeight: '200px',
+                                overflowY: 'auto',
+                                zIndex: 1000,
+                                boxShadow: '0 10px 25px rgba(0, 0, 0, 0.5)'
+                            }}>
+                                {filteredContacts.slice(0, 10).map((contact, index) => (
+                                    <div
+                                        key={index}
+                                        onMouseDown={(e) => {
+                                            e.preventDefault();
+                                            selectContact(contact);
+                                        }}
+                                        style={{
+                                            padding: '12px 16px',
+                                            cursor: 'pointer',
+                                            borderBottom: index < filteredContacts.length - 1 ? '1px solid rgba(255, 255, 255, 0.05)' : 'none',
+                                            transition: 'background 0.15s'
+                                        }}
+                                        onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(59, 130, 246, 0.1)'}
+                                        onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                                    >
+                                        <div style={{ color: '#ffffff', fontSize: '14px', fontWeight: '500' }}>
+                                            {contact.name}
+                                        </div>
+                                        <div style={{ color: '#9ca3af', fontSize: '12px', marginTop: '2px' }}>
+                                            {contact.email}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                        
+                        {/* Helper Text */}
+                        <div style={{
+                            fontSize: '11px',
+                            color: '#6b7280',
+                            marginTop: '6px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px'
+                        }}>
+                            <span>💡</span>
+                            <span>Press Enter or comma to add • Backspace to remove • Click to select from contacts</span>
+                        </div>
                     </div>
 
                     {/* Action Button */}
