@@ -20,7 +20,7 @@ Analyzes every attendee's Google Calendar in real-time, surfaces conflict-free s
 
 <br/>
 
-[**Live Demo**](https://ai-meet-scheduler-eimp.onrender.com) · [**API Docs**](https://ai-meet-scheduler-eimp.onrender.com/docs) · [**Report a Bug**](issues) · [**Request Feature**](issues)
+[**Live Demo**](https://ai-meet-scheduler-frontend.onrender.com) · [**API Docs**](https://ai-meet-scheduler-eimp.onrender.com/docs) · [**Report a Bug**](issues) · [**Request Feature**](issues)
 
 </div>
 
