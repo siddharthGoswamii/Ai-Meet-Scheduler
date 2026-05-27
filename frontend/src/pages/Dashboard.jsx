@@ -149,7 +149,7 @@ export default function Dashboard() {
         } catch (err) {
             console.error('Failed to fetch booked slots:', err?.response?.data || err);
         }
-    }, [date, getHeaders]);
+    }, [date, getHeaders, withAuthRetry]);
 
     // ── Step 3: Get AI suggestions ──
     const getSuggestions = async () => {
