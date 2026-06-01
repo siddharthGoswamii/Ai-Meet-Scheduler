@@ -521,7 +521,7 @@ MIT License — see [LICENSE](LICENSE) for details.
 
 ## 👥 Team
 
-Built with ❤️ during the Bobathon by the **AI Meet Scheduler** team.
+Built with ❤️ during the Bobathon by the **Bob Fusion** team.
 
 | Role | Contribution |
 |---|---|
