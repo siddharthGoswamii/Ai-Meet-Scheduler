@@ -65,10 +65,57 @@ export default function Dashboard() {
         }
     }, [searchParams, navigate, persistTokens]);
 
-    // ── Email Tag Management ──
+    // ── Email Tag Management - STRICT Gmail Only ──
     const validateEmail = (email) => {
+        // Basic format check
         const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        return re.test(email);
+        if (!re.test(email)) {
+            return { valid: false, message: 'Invalid email format' };
+        }
+        
+        // Extract domain
+        const domain = email.split('@')[1]?.toLowerCase();
+        
+        // Common Gmail typos
+        const gmailTypos = {
+            'gmal.com': 'gmail.com',
+            'gmial.com': 'gmail.com',
+            'gmaill.com': 'gmail.com',
+            'gmil.com': 'gmail.com',
+            'gmai.com': 'gmail.com',
+            'gmailcom': 'gmail.com',
+            'gmail.co': 'gmail.com',
+            'gmail.cm': 'gmail.com',
+        };
+        
+        // Check for typos
+        if (gmailTypos[domain]) {
+            return {
+                valid: false,
+                message: `Did you mean @${gmailTypos[domain]}? Please use a valid Gmail address.`
+            };
+        }
+        
+        // STRICT: Only Gmail addresses allowed
+        if (domain !== 'gmail.com') {
+            return {
+                valid: false,
+                message: 'Only Gmail addresses (@gmail.com) are allowed for serious meetings.'
+            };
+        }
+        
+        // Validate local part (username)
+        const localPart = email.split('@')[0];
+        if (!localPart || localPart.length < 1) {
+            return { valid: false, message: 'Email username cannot be empty' };
+        }
+        
+        // Check for invalid patterns
+        if (localPart.includes('..') || localPart.startsWith('.') || localPart.endsWith('.')) {
+            return { valid: false, message: 'Invalid Gmail address format' };
+        }
+        
+        return { valid: true, message: '' };
     };
 
     const addEmailTag = (email) => {
@@ -76,8 +123,9 @@ export default function Dashboard() {
         
         if (!trimmedEmail) return;
         
-        if (!validateEmail(trimmedEmail)) {
-            alert('Please enter a valid email address');
+        const validation = validateEmail(trimmedEmail);
+        if (!validation.valid) {
+            alert(validation.message);
             return;
         }
         
@@ -253,6 +301,21 @@ export default function Dashboard() {
             return;
         }
 
+        // Validate all email tags before proceeding
+        const invalidEmails = [];
+        for (const email of emailTags) {
+            const validation = validateEmail(email);
+            if (!validation.valid) {
+                invalidEmails.push({ email, message: validation.message });
+            }
+        }
+
+        if (invalidEmails.length > 0) {
+            const errorMessages = invalidEmails.map(item => `${item.email}: ${item.message}`).join('\n');
+            alert(`Please fix the following email addresses:\n\n${errorMessages}`);
+            return;
+        }
+
         setLoading(true);
         setSuggestions([]);
 
@@ -271,7 +334,8 @@ export default function Dashboard() {
             await fetchBookedSlots(date);
         } catch (err) {
             console.error(err);
-            alert('Failed to fetch AI suggestions. Is your backend running?');
+            const errorMsg = err?.response?.data?.detail || 'Failed to fetch AI suggestions. Is your backend running?';
+            alert(errorMsg);
         } finally {
             setLoading(false);
         }

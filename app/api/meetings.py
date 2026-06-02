@@ -29,6 +29,8 @@ from app.schemas import (
 from app.services import auth_service
 from app.services.google_calendar_service import GoogleCalendarService
 from app.api.auth import get_current_user
+from app.services.gmail_verifier import verify_gmail_accounts
+from app.utils.email_validator import validate_email_list
 from datetime import timezone, timedelta
 # from datetime import datetime as dt, timezone, timedelta
 
@@ -47,6 +49,15 @@ async def suggest_meeting_slots(
         duration_mins  = request_data.get("duration_mins", 60)
         preferred_date = request_data.get("preferred_date", "")
 
+        # Step 1: Validate participant email format (Gmail-only)
+        if participants:
+            is_valid, error_msg, invalid_emails = validate_email_list(participants)
+            if not is_valid:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=error_msg
+                )
+
         if not current_user.access_token:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -58,6 +69,20 @@ async def suggest_meeting_slots(
         ) if current_user.refresh_token else ""
 
         google_service = GoogleCalendarService(access_token, refresh_token)
+
+        # Step 2: Verify Gmail accounts actually exist using Google People API
+        if participants:
+            logger.info(f"Verifying {len(participants)} Gmail accounts exist...")
+            accounts_valid, verify_error, invalid_accounts = verify_gmail_accounts(
+                participants,
+                access_token
+            )
+            if not accounts_valid:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=verify_error
+                )
+            logger.info(f"All {len(participants)} Gmail accounts verified successfully")
 
         # Parse date - handle both DD-MM-YYYY and YYYY-MM-DD formats
         if preferred_date:

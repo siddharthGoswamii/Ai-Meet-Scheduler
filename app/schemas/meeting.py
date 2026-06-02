@@ -1,10 +1,11 @@
 """
 Meeting Pydantic schemas for request/response validation
 """
-from pydantic import BaseModel, EmailStr, Field, field_validator
+from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
 from datetime import datetime, timezone
 from typing import Optional, List
 from enum import Enum
+from app.utils.email_validator import validate_email
 
 
 class MeetingStatus(str, Enum):
@@ -28,6 +29,15 @@ class AttendeeCreate(BaseModel):
     email: EmailStr
     display_name: Optional[str] = None
     is_required: bool = True
+    
+    @field_validator('email')
+    @classmethod
+    def validate_email_domain(cls, v: str) -> str:
+        """Validate email domain exists and check for common typos"""
+        is_valid, error_msg = validate_email(v)
+        if not is_valid:
+            raise ValueError(error_msg)
+        return v
 
 
 class AttendeeResponse(BaseModel):
